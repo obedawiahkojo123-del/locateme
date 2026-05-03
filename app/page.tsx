@@ -8,85 +8,117 @@ export default function Home() {
   const [status, setStatus] = useState("");
 
   const getLocation = () => {
-    setStatus("Button clicked...");
+    setStatus("Starting GPS...");
 
     if (!navigator.geolocation) {
-      setStatus("Geolocation not supported");
+      setStatus("GPS not supported on this device");
       return;
     }
 
-    setStatus("Requesting location...");
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+        const { latitude, longitude, accuracy } = pos.coords;
 
-        const link = `https://maps.google.com/?q=${lat},${lng}`;
+        const link = `https://maps.google.com/?q=${latitude},${longitude}`;
+
         setLocationLink(link);
-        setStatus("Location found ✅");
+        setStatus(`GPS success ✅ (±${Math.round(accuracy)} meters)`);
       },
       (err) => {
         console.error(err);
 
-        // fallback test location (Accra)
-        const fallback = "https://maps.google.com/?q=5.6037,-0.1870";
-        setLocationLink(fallback);
+        let message = "Unknown error";
 
-        setStatus("Location blocked ❌ (using fallback Accra)");
+        if (err.code === 1) message = "Permission denied ❌";
+        if (err.code === 2) message = "Location unavailable ❌";
+        if (err.code === 3) message = "Request timeout ❌";
+
+        setStatus(`GPS failed: ${message}`);
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 20000,
+        maximumAge: 0,
       }
     );
   };
 
   const shareWhatsApp = () => {
-    const message = `Here’s my exact location: ${locationLink}${
+    if (!locationLink) return;
+
+    const message = `Here’s my exact location for delivery: ${locationLink}${
       landmark ? ` | Landmark: ${landmark}` : ""
     }`;
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`);
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
+  const copyLink = async () => {
+    if (!locationLink) return;
+
+    try {
+      await navigator.clipboard.writeText(locationLink);
+      alert("Link copied!");
+    } catch {
+      alert("Copy failed");
+    }
+  };
+
+  const reset = () => {
+    setLocationLink("");
+    setLandmark("");
+    setStatus("");
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
+    <main className="min-h-screen flex items-center justify-center px-4 bg-white">
       <div className="w-full max-w-sm flex flex-col gap-5 text-center">
         <h1 className="text-3xl font-bold">LocateMe</h1>
 
-        <button
-          onClick={getLocation}
-          className="bg-black text-white py-4 rounded-xl text-lg"
-        >
-          Get My Location
-        </button>
+        {!locationLink && (
+          <button
+            onClick={getLocation}
+            className="w-full bg-black text-white py-4 rounded-xl text-lg active:scale-95 transition"
+          >
+            Get My Location
+          </button>
+        )}
 
-        <p className="text-sm text-gray-500">{status}</p>
+        {status && (
+          <p className="text-sm text-gray-600">{status}</p>
+        )}
 
         {locationLink && (
-          <>
+          <div className="flex flex-col gap-4">
             <input
-              placeholder="Add landmark"
+              type="text"
+              placeholder="Add landmark (e.g. blue kiosk opposite Melcom)"
               value={landmark}
               onChange={(e) => setLandmark(e.target.value)}
-              className="border p-3 rounded-lg"
+              className="border p-3 rounded-lg w-full"
             />
 
             <button
               onClick={shareWhatsApp}
-              className="bg-green-600 text-white py-3 rounded-xl"
+              className="bg-green-600 text-white py-3 rounded-xl text-lg active:scale-95 transition"
             >
               Share via WhatsApp
             </button>
 
             <button
-              onClick={() => navigator.clipboard.writeText(locationLink)}
-              className="border py-3 rounded-xl"
+              onClick={copyLink}
+              className="border py-3 rounded-xl text-lg active:scale-95 transition"
             >
               Copy Link
             </button>
-          </>
+
+            <button
+              onClick={reset}
+              className="text-sm text-gray-500 underline"
+            >
+              Reset
+            </button>
+          </div>
         )}
       </div>
     </main>
