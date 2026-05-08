@@ -1,125 +1,478 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-export default function Home() {
-  const [locationLink, setLocationLink] = useState("");
-  const [landmark, setLandmark] = useState("");
-  const [status, setStatus] = useState("");
+import dynamic from "next/dynamic";
 
-  const getLocation = () => {
-    setStatus("Starting GPS...");
+import {
+  MapPin,
+  Share2,
+  Navigation,
+  Mic,
+  Copy,
+  Building2,
+  Home,
+  Layers3,
+  StickyNote,
+} from "lucide-react";
 
-    if (!navigator.geolocation) {
-      setStatus("GPS not supported on this device");
-      return;
-    }
+import { QRCodeSVG } from "qrcode.react";
+
+import { supabase } from "./lib/supabase";
+
+import "leaflet/dist/leaflet.css";
+
+const MapView = dynamic(
+  () => import("./components/MapView"),
+  {
+    ssr: false,
+  }
+);
+
+export default function HomePage() {
+  const [mounted, setMounted] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [position, setPosition] =
+    useState<[number, number]>([
+      5.6037,
+      -0.187,
+    ]);
+
+  const [shareUrl, setShareUrl] =
+    useState("");
+
+  const [copied, setCopied] =
+    useState(false);
+
+  const [landmark, setLandmark] =
+    useState("");
+
+  const [
+    buildingColor,
+    setBuildingColor,
+  ] = useState("");
+
+  const [
+    apartmentSide,
+    setApartmentSide,
+  ] = useState("");
+
+  const [floorNote, setFloorNote] =
+    useState("");
+
+  const [arrivalNote, setArrivalNote] =
+    useState("");
+
+  const [
+    generatedGuide,
+    setGeneratedGuide,
+  ] = useState("");
+
+  const leafletIcon = useMemo(() => {
+    if (typeof window === "undefined")
+      return null;
+
+    const L = require("leaflet");
+
+    return L.icon({
+      iconUrl:
+        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+
+      shadowUrl:
+        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+
+      iconSize: [25, 41],
+
+      iconAnchor: [12, 41],
+    });
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
+
+    fetchLocation();
+  }, []);
+
+  const fetchLocation = () => {
+    setLoading(true);
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
+        setPosition([
+          pos.coords.latitude,
+          pos.coords.longitude,
+        ]);
 
-        const link = `https://maps.google.com/?q=${latitude},${longitude}`;
-
-        setLocationLink(link);
-        setStatus(`GPS success ✅ (±${Math.round(accuracy)} meters)`);
+        setLoading(false);
       },
+
       (err) => {
-        console.error(err);
+        console.log(err);
 
-        let message = "Unknown error";
+        alert(
+          "Could not fetch location"
+        );
 
-        if (err.code === 1) message = "Permission denied ❌";
-        if (err.code === 2) message = "Location unavailable ❌";
-        if (err.code === 3) message = "Request timeout ❌";
-
-        setStatus(`GPS failed: ${message}`);
+        setLoading(false);
       },
+
       {
         enableHighAccuracy: true,
-        timeout: 20000,
+
+        timeout: 15000,
+
         maximumAge: 0,
       }
     );
   };
 
-  const shareWhatsApp = () => {
-    if (!locationLink) return;
+  const generateSmartGuide = () => {
+    const parts = [];
 
-    const message = `Here’s my exact location for delivery: ${locationLink}${
-      landmark ? ` | Landmark: ${landmark}` : ""
-    }`;
+    if (landmark)
+      parts.push(
+        `Near ${landmark}`
+      );
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+    if (buildingColor)
+      parts.push(
+        `${buildingColor} building`
+      );
+
+    if (apartmentSide)
+      parts.push(apartmentSide);
+
+    if (floorNote)
+      parts.push(floorNote);
+
+    if (arrivalNote)
+      parts.push(arrivalNote);
+
+    const text = parts.join(". ");
+
+    setGeneratedGuide(text);
+
+    return text;
   };
 
-  const copyLink = async () => {
-    if (!locationLink) return;
+  const speakGuide = () => {
+    const text =
+      generatedGuide ||
+      generateSmartGuide();
 
+    const speech =
+      new SpeechSynthesisUtterance(
+        text
+      );
+
+    speech.rate = 0.92;
+
+    window.speechSynthesis.speak(
+      speech
+    );
+  };
+
+  const createLink = async () => {
     try {
-      await navigator.clipboard.writeText(locationLink);
-      alert("Link copied!");
-    } catch {
-      alert("Copy failed");
+      setLoading(true);
+
+      const smartGuide =
+        generateSmartGuide();
+
+      const id = Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
+
+      const { error } =
+        await supabase
+          .from("locations")
+          .insert({
+            id,
+
+            latitude: position[0],
+
+            longitude: position[1],
+
+            landmark,
+
+            building_color:
+              buildingColor,
+
+            apartment_side:
+              apartmentSide,
+
+            floor_note:
+              floorNote,
+
+            arrival_note:
+              arrivalNote,
+
+            smart_guide:
+              smartGuide,
+          });
+
+      if (error) {
+        console.log(error);
+
+        alert(error.message);
+
+        setLoading(false);
+
+        return;
+      }
+
+      const url = `${window.location.origin}/lm/${id}`;
+
+      setShareUrl(url);
+
+      setLoading(false);
+    } catch (err) {
+      console.log(err);
+
+      setLoading(false);
     }
   };
 
-  const reset = () => {
-    setLocationLink("");
-    setLandmark("");
-    setStatus("");
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(
+      shareUrl
+    );
+
+    setCopied(true);
+
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
   };
 
+  const shareWhatsApp = () => {
+    const text = encodeURIComponent(
+      `📍 LocateMe Location\n\n${shareUrl}`
+    );
+
+    window.location.href = `https://wa.me/?text=${text}`;
+  };
+
+  if (!mounted) return null;
+
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 bg-white">
-      <div className="w-full max-w-sm flex flex-col gap-5 text-center">
-        <h1 className="text-3xl font-bold">LocateMe</h1>
+    <main className="min-h-screen bg-black text-white px-4 py-6">
+      <div className="max-w-2xl mx-auto">
 
-        {!locationLink && (
-          <button
-            onClick={getLocation}
-            className="w-full bg-black text-white py-4 rounded-xl text-lg active:scale-95 transition"
-          >
-            Get My Location
-          </button>
-        )}
+        <div className="mb-6">
+          <h1 className="text-5xl font-bold">
+            LocateMe
+          </h1>
 
-        {status && (
-          <p className="text-sm text-gray-600">{status}</p>
-        )}
+          <p className="text-zinc-400 mt-2">
+            Smart location sharing for
+            Africa and beyond.
+          </p>
+        </div>
 
-        {locationLink && (
-          <div className="flex flex-col gap-4">
+        <div className="rounded-3xl overflow-hidden border border-zinc-800">
+          {leafletIcon && (
+            <MapView
+              position={position}
+              setPosition={setPosition}
+              draggable={true}
+            />
+          )}
+        </div>
+
+        <button
+          onClick={fetchLocation}
+          className="w-full mt-5 bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+        >
+          <Navigation size={18} />
+
+          {loading
+            ? "Fetching location..."
+            : "Use My Live Location"}
+        </button>
+
+        <div className="mt-5 space-y-4">
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <MapPin size={16} />
+              Landmark
+            </label>
+
             <input
               type="text"
-              placeholder="Add landmark (e.g. blue kiosk opposite Melcom)"
+              placeholder="Near Shell station"
               value={landmark}
-              onChange={(e) => setLandmark(e.target.value)}
-              className="border p-3 rounded-lg w-full"
+              onChange={(e) =>
+                setLandmark(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none"
             />
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <Building2 size={16} />
+              Building Color
+            </label>
+
+            <input
+              type="text"
+              placeholder="Blue building"
+              value={buildingColor}
+              onChange={(e) =>
+                setBuildingColor(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none"
+            />
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <Home size={16} />
+              Apartment / Gate Side
+            </label>
+
+            <input
+              type="text"
+              placeholder="Second gate on left"
+              value={apartmentSide}
+              onChange={(e) =>
+                setApartmentSide(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none"
+            />
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <Layers3 size={16} />
+              Floor / Room
+            </label>
+
+            <input
+              type="text"
+              placeholder="Top floor room 4"
+              value={floorNote}
+              onChange={(e) =>
+                setFloorNote(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none"
+            />
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <StickyNote size={16} />
+              Arrival Note
+            </label>
+
+            <textarea
+              placeholder="Call when you arrive"
+              value={arrivalNote}
+              onChange={(e) =>
+                setArrivalNote(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none h-28 resize-none"
+            />
+          </div>
+
+        </div>
+
+        <button
+          onClick={createLink}
+          className="w-full mt-5 bg-green-500 hover:bg-green-400 transition rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+        >
+          <MapPin size={18} />
+
+          Generate LocateMe Link
+        </button>
+
+        {shareUrl && (
+          <div className="mt-5 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5">
+
+            <div>
+              <p className="text-sm text-zinc-400 mb-2">
+                Share Link
+              </p>
+
+              <div className="bg-zinc-800 rounded-xl p-3 text-sm break-all">
+                {shareUrl}
+              </div>
+            </div>
+
+            <div className="bg-zinc-800 rounded-2xl p-4">
+              <p className="text-sm text-zinc-400 mb-2">
+                Smart Guide
+              </p>
+
+              <p className="text-sm">
+                {generatedGuide}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+
+              <button
+                onClick={copyLink}
+                className="flex-1 bg-zinc-800 rounded-xl py-3 flex items-center justify-center gap-2"
+              >
+                <Copy size={16} />
+
+                {copied
+                  ? "Copied"
+                  : "Copy"}
+              </button>
+
+              <button
+                onClick={shareWhatsApp}
+                className="flex-1 bg-green-600 rounded-xl py-3 flex items-center justify-center gap-2"
+              >
+                <Share2 size={16} />
+                WhatsApp
+              </button>
+
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 flex justify-center">
+              <QRCodeSVG
+                value={shareUrl}
+                size={180}
+              />
+            </div>
 
             <button
-              onClick={shareWhatsApp}
-              className="bg-green-600 text-white py-3 rounded-xl text-lg active:scale-95 transition"
+              onClick={speakGuide}
+              className="w-full bg-blue-600 rounded-xl py-3 flex items-center justify-center gap-2"
             >
-              Share via WhatsApp
+              <Mic size={18} />
+
+              Voice Guidance
             </button>
 
-            <button
-              onClick={copyLink}
-              className="border py-3 rounded-xl text-lg active:scale-95 transition"
-            >
-              Copy Link
-            </button>
-
-            <button
-              onClick={reset}
-              className="text-sm text-gray-500 underline"
-            >
-              Reset
-            </button>
           </div>
         )}
+
       </div>
     </main>
   );
