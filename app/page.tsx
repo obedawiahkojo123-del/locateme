@@ -30,6 +30,16 @@ const MapView = dynamic(
   }
 );
 
+interface LocationData {
+  id: string;
+
+  landmark: string;
+
+  place_name: string;
+
+  created_at: string;
+}
+
 export default function HomePage() {
   const [mounted, setMounted] =
     useState(false);
@@ -71,10 +81,17 @@ export default function HomePage() {
   const [phoneNumber, setPhoneNumber] =
     useState("");
 
+  const [placeName, setPlaceName] =
+    useState("");
+
   const [
     generatedGuide,
     setGeneratedGuide,
   ] = useState("");
+
+  const [recentLocations,
+    setRecentLocations,
+  ] = useState<LocationData[]>([]);
 
   const leafletIcon = useMemo(() => {
     if (typeof window === "undefined")
@@ -99,7 +116,29 @@ export default function HomePage() {
     setMounted(true);
 
     fetchLocation();
+
+    fetchRecentLocations();
   }, []);
+
+  const fetchRecentLocations =
+    async () => {
+
+      const { data, error } =
+        await supabase
+          .from("locations")
+          .select(
+            "id, landmark, place_name, created_at"
+          )
+          .order(
+            "created_at",
+            { ascending: false }
+          )
+          .limit(5);
+
+      if (!error && data) {
+        setRecentLocations(data);
+      }
+    };
 
   const fetchLocation = () => {
     setLoading(true);
@@ -222,6 +261,9 @@ export default function HomePage() {
             smart_guide:
               smartGuide,
 
+            place_name:
+              placeName,
+
             arrived: false,
           });
 
@@ -234,6 +276,8 @@ export default function HomePage() {
 
         return;
       }
+
+      fetchRecentLocations();
 
       const url = `${window.location.origin}/lm/${id}`;
 
@@ -306,6 +350,26 @@ export default function HomePage() {
         </button>
 
         <div className="mt-5 space-y-4">
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <MapPin size={16} />
+              Place Name
+            </label>
+
+            <input
+              type="text"
+              placeholder="Home, Office, Shop..."
+              value={placeName}
+              onChange={(e) =>
+                setPlaceName(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none"
+            />
+          </div>
 
           <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
 
@@ -435,6 +499,49 @@ export default function HomePage() {
           <MapPin size={18} />
           Generate LocateMe Link
         </button>
+
+        <div className="mt-8">
+
+          <h2 className="text-xl font-bold mb-4">
+            Recent Locations
+          </h2>
+
+          <div className="space-y-3">
+
+            {recentLocations.map((loc) => (
+
+              <div
+                key={loc.id}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
+              >
+
+                <div>
+
+                  <p className="font-semibold">
+                    {loc.place_name ||
+                      "Unnamed Place"}
+                  </p>
+
+                  <p className="text-sm text-zinc-400">
+                    {loc.landmark}
+                  </p>
+
+                </div>
+
+                <a
+                  href={`/lm/${loc.id}`}
+                  className="bg-white text-black px-4 py-2 rounded-xl text-sm font-semibold"
+                >
+                  Open
+                </a>
+
+              </div>
+
+            ))}
+
+          </div>
+
+        </div>
 
         {shareUrl && (
           <div className="mt-5 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5">
