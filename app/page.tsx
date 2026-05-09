@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import dynamic from "next/dynamic";
 
@@ -72,32 +72,26 @@ export default function HomePage() {
     setGeneratedGuide,
   ] = useState("");
 
-  const leafletIcon = useMemo(() => {
-    if (typeof window === "undefined")
-      return null;
-
-    const L = require("leaflet");
-
-    return L.icon({
-      iconUrl:
-        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-
-      shadowUrl:
-        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-
-      iconSize: [25, 41],
-
-      iconAnchor: [12, 41],
-    });
-  }, []);
-
   useEffect(() => {
     setMounted(true);
 
-    fetchLocation();
+    if (
+      typeof window !== "undefined" &&
+      navigator.geolocation
+    ) {
+      fetchLocation();
+    }
   }, []);
 
   const fetchLocation = () => {
+    if (!navigator.geolocation) {
+      alert(
+        "Geolocation is not supported on this device"
+      );
+
+      return;
+    }
+
     setLoading(true);
 
     navigator.geolocation.getCurrentPosition(
@@ -114,7 +108,7 @@ export default function HomePage() {
         console.log(err);
 
         alert(
-          "Could not fetch location"
+          "Could not fetch location. Please allow location access."
         );
 
         setLoading(false);
@@ -122,9 +116,7 @@ export default function HomePage() {
 
       {
         enableHighAccuracy: true,
-
-        timeout: 15000,
-
+        timeout: 20000,
         maximumAge: 0,
       }
     );
@@ -164,12 +156,16 @@ export default function HomePage() {
       generatedGuide ||
       generateSmartGuide();
 
+    if (!text) return;
+
     const speech =
       new SpeechSynthesisUtterance(
         text
       );
 
     speech.rate = 0.92;
+
+    window.speechSynthesis.cancel();
 
     window.speechSynthesis.speak(
       speech
@@ -234,20 +230,28 @@ export default function HomePage() {
     } catch (err) {
       console.log(err);
 
+      alert(
+        "Something went wrong creating your link"
+      );
+
       setLoading(false);
     }
   };
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(
-      shareUrl
-    );
+    try {
+      await navigator.clipboard.writeText(
+        shareUrl
+      );
 
-    setCopied(true);
+      setCopied(true);
 
-    setTimeout(() => {
-      setCopied(false);
-    }, 2000);
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   const shareWhatsApp = () => {
@@ -255,7 +259,10 @@ export default function HomePage() {
       `📍 LocateMe Location\n\n${shareUrl}`
     );
 
-    window.location.href = `https://wa.me/?text=${text}`;
+    window.open(
+      `https://wa.me/?text=${text}`,
+      "_blank"
+    );
   };
 
   if (!mounted) return null;
@@ -276,13 +283,11 @@ export default function HomePage() {
         </div>
 
         <div className="rounded-3xl overflow-hidden border border-zinc-800">
-          {leafletIcon && (
-            <MapView
-              position={position}
-              setPosition={setPosition}
-              draggable={true}
-            />
-          )}
+          <MapView
+            position={position}
+            setPosition={setPosition}
+            draggable={true}
+          />
         </div>
 
         <button
@@ -401,11 +406,14 @@ export default function HomePage() {
 
         <button
           onClick={createLink}
-          className="w-full mt-5 bg-green-500 hover:bg-green-400 transition rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          disabled={loading}
+          className="w-full mt-5 bg-green-500 hover:bg-green-400 transition rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <MapPin size={18} />
 
-          Generate LocateMe Link
+          {loading
+            ? "Generating..."
+            : "Generate LocateMe Link"}
         </button>
 
         {shareUrl && (
@@ -466,7 +474,6 @@ export default function HomePage() {
               className="w-full bg-blue-600 rounded-xl py-3 flex items-center justify-center gap-2"
             >
               <Mic size={18} />
-
               Voice Guidance
             </button>
 
