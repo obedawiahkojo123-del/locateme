@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import dynamic from "next/dynamic";
 
@@ -14,6 +14,7 @@ import {
   Home,
   Layers3,
   StickyNote,
+  Phone,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -67,31 +68,40 @@ export default function HomePage() {
   const [arrivalNote, setArrivalNote] =
     useState("");
 
+  const [phoneNumber, setPhoneNumber] =
+    useState("");
+
   const [
     generatedGuide,
     setGeneratedGuide,
   ] = useState("");
 
+  const leafletIcon = useMemo(() => {
+    if (typeof window === "undefined")
+      return null;
+
+    const L = require("leaflet");
+
+    return L.icon({
+      iconUrl:
+        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+
+      shadowUrl:
+        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+
+      iconSize: [25, 41],
+
+      iconAnchor: [12, 41],
+    });
+  }, []);
+
   useEffect(() => {
     setMounted(true);
 
-    if (
-      typeof window !== "undefined" &&
-      navigator.geolocation
-    ) {
-      fetchLocation();
-    }
+    fetchLocation();
   }, []);
 
   const fetchLocation = () => {
-    if (!navigator.geolocation) {
-      alert(
-        "Geolocation is not supported on this device"
-      );
-
-      return;
-    }
-
     setLoading(true);
 
     navigator.geolocation.getCurrentPosition(
@@ -108,7 +118,7 @@ export default function HomePage() {
         console.log(err);
 
         alert(
-          "Could not fetch location. Please allow location access."
+          "Could not fetch location"
         );
 
         setLoading(false);
@@ -116,7 +126,9 @@ export default function HomePage() {
 
       {
         enableHighAccuracy: true,
-        timeout: 20000,
+
+        timeout: 15000,
+
         maximumAge: 0,
       }
     );
@@ -156,16 +168,12 @@ export default function HomePage() {
       generatedGuide ||
       generateSmartGuide();
 
-    if (!text) return;
-
     const speech =
       new SpeechSynthesisUtterance(
         text
       );
 
     speech.rate = 0.92;
-
-    window.speechSynthesis.cancel();
 
     window.speechSynthesis.speak(
       speech
@@ -208,8 +216,13 @@ export default function HomePage() {
             arrival_note:
               arrivalNote,
 
+            phone_number:
+              phoneNumber,
+
             smart_guide:
               smartGuide,
+
+            arrived: false,
           });
 
       if (error) {
@@ -230,28 +243,20 @@ export default function HomePage() {
     } catch (err) {
       console.log(err);
 
-      alert(
-        "Something went wrong creating your link"
-      );
-
       setLoading(false);
     }
   };
 
   const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(
-        shareUrl
-      );
+    await navigator.clipboard.writeText(
+      shareUrl
+    );
 
-      setCopied(true);
+    setCopied(true);
 
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
-    } catch (err) {
-      console.log(err);
-    }
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
   };
 
   const shareWhatsApp = () => {
@@ -259,10 +264,7 @@ export default function HomePage() {
       `📍 LocateMe Location\n\n${shareUrl}`
     );
 
-    window.open(
-      `https://wa.me/?text=${text}`,
-      "_blank"
-    );
+    window.location.href = `https://wa.me/?text=${text}`;
   };
 
   if (!mounted) return null;
@@ -283,11 +285,13 @@ export default function HomePage() {
         </div>
 
         <div className="rounded-3xl overflow-hidden border border-zinc-800">
-          <MapView
-            position={position}
-            setPosition={setPosition}
-            draggable={true}
-          />
+          {leafletIcon && (
+            <MapView
+              position={position}
+              setPosition={setPosition}
+              draggable={true}
+            />
+          )}
         </div>
 
         <button
@@ -402,18 +406,34 @@ export default function HomePage() {
             />
           </div>
 
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
+            <label className="text-sm text-zinc-400 flex items-center gap-2">
+              <Phone size={16} />
+              Phone Number
+            </label>
+
+            <input
+              type="text"
+              placeholder="+233..."
+              value={phoneNumber}
+              onChange={(e) =>
+                setPhoneNumber(
+                  e.target.value
+                )
+              }
+              className="w-full mt-2 bg-zinc-800 rounded-xl px-4 py-3 outline-none"
+            />
+          </div>
+
         </div>
 
         <button
           onClick={createLink}
-          disabled={loading}
-          className="w-full mt-5 bg-green-500 hover:bg-green-400 transition rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full mt-5 bg-green-500 hover:bg-green-400 transition rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
         >
           <MapPin size={18} />
-
-          {loading
-            ? "Generating..."
-            : "Generate LocateMe Link"}
+          Generate LocateMe Link
         </button>
 
         {shareUrl && (

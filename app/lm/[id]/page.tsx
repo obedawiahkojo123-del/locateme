@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { useParams } from "next/navigation";
 
 import dynamic from "next/dynamic";
@@ -13,12 +14,13 @@ import {
   Layers3,
   StickyNote,
   Volume2,
-  Car,
-  Timer,
-  Route,
+  Phone,
+  CheckCircle2,
+  LocateFixed,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
+
 import { speak } from "../../lib/speak";
 
 const MapView = dynamic(
@@ -46,6 +48,10 @@ interface LocationData {
   arrival_note: string;
 
   smart_guide: string;
+
+  phone_number: string;
+
+  arrived: boolean;
 }
 
 export default function LocationPage() {
@@ -57,16 +63,11 @@ export default function LocationPage() {
   const [loading, setLoading] =
     useState(true);
 
-  const [userPosition, setUserPosition] =
-    useState<[number, number] | null>(
-      null
-    );
-
   const [distanceAway, setDistanceAway] =
     useState("");
 
-  const [eta, setEta] =
-    useState("");
+  const [arrivalLoading, setArrivalLoading] =
+    useState(false);
 
   useEffect(() => {
     async function fetchLocation() {
@@ -85,44 +86,7 @@ export default function LocationPage() {
             `Destination loaded near ${data.landmark}`
         );
 
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const userLat =
-              pos.coords.latitude;
-
-            const userLng =
-              pos.coords.longitude;
-
-            setUserPosition([
-              userLat,
-              userLng,
-            ]);
-
-            const distance =
-              calculateDistance(
-                userLat,
-                userLng,
-                data.latitude,
-                data.longitude
-              );
-
-            setDistanceAway(
-              `${distance.toFixed(
-                1
-              )} km away`
-            );
-
-            const estimatedMinutes =
-              Math.max(
-                1,
-                Math.round(distance * 3)
-              );
-
-            setEta(
-              `~${estimatedMinutes} mins away`
-            );
-          }
-        );
+        getDistance(data);
       }
 
       setLoading(false);
@@ -131,43 +95,107 @@ export default function LocationPage() {
     fetchLocation();
   }, [params]);
 
-  function calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) {
-    const R = 6371;
+  const getDistance = (
+    destination: LocationData
+  ) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat1 =
+          pos.coords.latitude;
 
-    const dLat =
-      ((lat2 - lat1) * Math.PI) /
-      180;
+        const lon1 =
+          pos.coords.longitude;
 
-    const dLon =
-      ((lon2 - lon1) * Math.PI) /
-      180;
+        const lat2 =
+          destination.latitude;
 
-    const a =
-      Math.sin(dLat / 2) *
-        Math.sin(dLat / 2) +
-      Math.cos(
-        (lat1 * Math.PI) / 180
-      ) *
-        Math.cos(
-          (lat2 * Math.PI) / 180
-        ) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        const lon2 =
+          destination.longitude;
 
-    const c =
-      2 *
-      Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a)
-      );
+        const R = 6371;
 
-    return R * c;
-  }
+        const dLat =
+          ((lat2 - lat1) *
+            Math.PI) /
+          180;
+
+        const dLon =
+          ((lon2 - lon1) *
+            Math.PI) /
+          180;
+
+        const a =
+          Math.sin(dLat / 2) *
+            Math.sin(dLat / 2) +
+          Math.cos(
+            (lat1 * Math.PI) / 180
+          ) *
+            Math.cos(
+              (lat2 * Math.PI) / 180
+            ) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+
+        const c =
+          2 *
+          Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(1 - a)
+          );
+
+        const distance =
+          R * c;
+
+        if (distance < 1) {
+          setDistanceAway(
+            `${Math.round(
+              distance * 1000
+            )} meters away`
+          );
+        } else {
+          setDistanceAway(
+            `${distance.toFixed(
+              1
+            )} km away`
+          );
+        }
+      }
+    );
+  };
+
+  const markArrived =
+    async () => {
+      if (!data) return;
+
+      try {
+        setArrivalLoading(true);
+
+        const { error } =
+          await supabase
+            .from("locations")
+            .update({
+              arrived: true,
+            })
+            .eq("id", data.id);
+
+        if (!error) {
+          setData({
+            ...data,
+            arrived: true,
+          });
+
+          speak(
+            "Arrival status updated"
+          );
+        }
+
+        setArrivalLoading(false);
+      } catch (err) {
+        console.log(err);
+
+        setArrivalLoading(false);
+      }
+    };
 
   if (loading) {
     return (
@@ -186,10 +214,6 @@ export default function LocationPage() {
   }
 
   const liveMapLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
-
-  const boltLink = `https://bolt.eu/ride/?destination=${data.latitude},${data.longitude}`;
-
-  const uberLink = `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}`;
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-6">
@@ -215,35 +239,31 @@ export default function LocationPage() {
           />
         </div>
 
-        <div className="mt-5 space-y-4">
+        {distanceAway && (
+          <div className="mt-4 bg-green-500 text-black rounded-2xl p-4 flex items-center gap-3 font-semibold">
 
-          <div className="grid grid-cols-2 gap-3">
+            <LocateFixed size={20} />
 
-            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
-              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
-                <Route size={16} />
-                Distance
-              </div>
-
-              <p className="font-bold text-lg">
-                {distanceAway ||
-                  "Calculating..."}
-              </p>
-            </div>
-
-            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
-              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
-                <Timer size={16} />
-                ETA
-              </div>
-
-              <p className="font-bold text-lg">
-                {eta ||
-                  "Calculating..."}
-              </p>
-            </div>
+            <span>
+              You are {distanceAway}
+            </span>
 
           </div>
+        )}
+
+        {data.arrived && (
+          <div className="mt-4 bg-blue-600 rounded-2xl p-4 flex items-center gap-3 font-semibold">
+
+            <CheckCircle2 size={20} />
+
+            <span>
+              Receiver has arrived
+            </span>
+
+          </div>
+        )}
+
+        <div className="mt-5 space-y-4">
 
           <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
 
@@ -349,27 +369,32 @@ export default function LocationPage() {
             Play Voice Guide
           </button>
 
-          <div className="grid grid-cols-2 gap-3">
-
+          {data.phone_number && (
             <a
-              href={boltLink}
-              target="_blank"
-              className="bg-green-500 text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+              href={`tel:${data.phone_number}`}
+              className="w-full bg-zinc-800 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
             >
-              <Car size={18} />
-              Bolt
+              <Phone size={18} />
+              Call Sender
             </a>
+          )}
 
-            <a
-              href={uberLink}
-              target="_blank"
-              className="bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
-            >
-              <Car size={18} />
-              Uber
-            </a>
+          <button
+            onClick={markArrived}
+            disabled={
+              data.arrived ||
+              arrivalLoading
+            }
+            className="w-full bg-purple-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <CheckCircle2 size={18} />
 
-          </div>
+            {data.arrived
+              ? "Arrived"
+              : arrivalLoading
+              ? "Updating..."
+              : "I've Arrived"}
+          </button>
 
           <a
             href={liveMapLink}
