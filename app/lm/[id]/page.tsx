@@ -13,6 +13,9 @@ import {
   Layers3,
   StickyNote,
   Volume2,
+  Car,
+  Timer,
+  Route,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -54,6 +57,17 @@ export default function LocationPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [userPosition, setUserPosition] =
+    useState<[number, number] | null>(
+      null
+    );
+
+  const [distanceAway, setDistanceAway] =
+    useState("");
+
+  const [eta, setEta] =
+    useState("");
+
   useEffect(() => {
     async function fetchLocation() {
       const { data, error } =
@@ -70,6 +84,45 @@ export default function LocationPage() {
           data.smart_guide ||
             `Destination loaded near ${data.landmark}`
         );
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const userLat =
+              pos.coords.latitude;
+
+            const userLng =
+              pos.coords.longitude;
+
+            setUserPosition([
+              userLat,
+              userLng,
+            ]);
+
+            const distance =
+              calculateDistance(
+                userLat,
+                userLng,
+                data.latitude,
+                data.longitude
+              );
+
+            setDistanceAway(
+              `${distance.toFixed(
+                1
+              )} km away`
+            );
+
+            const estimatedMinutes =
+              Math.max(
+                1,
+                Math.round(distance * 3)
+              );
+
+            setEta(
+              `~${estimatedMinutes} mins away`
+            );
+          }
+        );
       }
 
       setLoading(false);
@@ -77,6 +130,44 @@ export default function LocationPage() {
 
     fetchLocation();
   }, [params]);
+
+  function calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) {
+    const R = 6371;
+
+    const dLat =
+      ((lat2 - lat1) * Math.PI) /
+      180;
+
+    const dLon =
+      ((lon2 - lon1) * Math.PI) /
+      180;
+
+    const a =
+      Math.sin(dLat / 2) *
+        Math.sin(dLat / 2) +
+      Math.cos(
+        (lat1 * Math.PI) / 180
+      ) *
+        Math.cos(
+          (lat2 * Math.PI) / 180
+        ) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      );
+
+    return R * c;
+  }
 
   if (loading) {
     return (
@@ -95,6 +186,10 @@ export default function LocationPage() {
   }
 
   const liveMapLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+
+  const boltLink = `https://bolt.eu/ride/?destination=${data.latitude},${data.longitude}`;
+
+  const uberLink = `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}`;
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-6">
@@ -121,6 +216,34 @@ export default function LocationPage() {
         </div>
 
         <div className="mt-5 space-y-4">
+
+          <div className="grid grid-cols-2 gap-3">
+
+            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
+                <Route size={16} />
+                Distance
+              </div>
+
+              <p className="font-bold text-lg">
+                {distanceAway ||
+                  "Calculating..."}
+              </p>
+            </div>
+
+            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
+                <Timer size={16} />
+                ETA
+              </div>
+
+              <p className="font-bold text-lg">
+                {eta ||
+                  "Calculating..."}
+              </p>
+            </div>
+
+          </div>
 
           <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
 
@@ -225,6 +348,28 @@ export default function LocationPage() {
             <Volume2 size={18} />
             Play Voice Guide
           </button>
+
+          <div className="grid grid-cols-2 gap-3">
+
+            <a
+              href={boltLink}
+              target="_blank"
+              className="bg-green-500 text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+            >
+              <Car size={18} />
+              Bolt
+            </a>
+
+            <a
+              href={uberLink}
+              target="_blank"
+              className="bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+            >
+              <Car size={18} />
+              Uber
+            </a>
+
+          </div>
 
           <a
             href={liveMapLink}
