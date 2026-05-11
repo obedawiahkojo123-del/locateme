@@ -15,6 +15,8 @@ import {
   Layers3,
   StickyNote,
   Phone,
+  Clock3,
+  ExternalLink,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -89,7 +91,8 @@ export default function HomePage() {
     setGeneratedGuide,
   ] = useState("");
 
-  const [recentLocations,
+  const [
+    recentLocations,
     setRecentLocations,
   ] = useState<LocationData[]>([]);
 
@@ -311,6 +314,14 @@ export default function HomePage() {
     window.location.href = `https://wa.me/?text=${text}`;
   };
 
+  const formatDate = (
+    date: string
+  ) => {
+    return new Date(
+      date
+    ).toLocaleString();
+  };
+
   if (!mounted) return null;
 
   return (
@@ -497,51 +508,10 @@ export default function HomePage() {
           className="w-full mt-5 bg-green-500 hover:bg-green-400 transition rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
         >
           <MapPin size={18} />
-          Generate LocateMe Link
+          {loading
+            ? "Generating..."
+            : "Generate LocateMe Link"}
         </button>
-
-        <div className="mt-8">
-
-          <h2 className="text-xl font-bold mb-4">
-            Recent Locations
-          </h2>
-
-          <div className="space-y-3">
-
-            {recentLocations.map((loc) => (
-
-              <div
-                key={loc.id}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
-              >
-
-                <div>
-
-                  <p className="font-semibold">
-                    {loc.place_name ||
-                      "Unnamed Place"}
-                  </p>
-
-                  <p className="text-sm text-zinc-400">
-                    {loc.landmark}
-                  </p>
-
-                </div>
-
-                <a
-                  href={`/lm/${loc.id}`}
-                  className="bg-white text-black px-4 py-2 rounded-xl text-sm font-semibold"
-                >
-                  Open
-                </a>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
 
         {shareUrl && (
           <div className="mt-5 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5">
@@ -606,6 +576,98 @@ export default function HomePage() {
 
           </div>
         )}
+
+        <div className="mt-10">
+
+          <div className="flex items-center justify-between mb-4">
+
+            <h2 className="text-2xl font-bold">
+              Recent Locations
+            </h2>
+
+            <div className="text-zinc-500 text-sm">
+              {recentLocations.length}
+              {" "}saved
+            </div>
+
+          </div>
+
+          <div className="space-y-3">
+
+            {recentLocations.length ===
+            0 ? (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center text-zinc-500">
+                No saved locations yet.
+              </div>
+            ) : (
+              recentLocations.map(
+                (loc) => (
+
+                  <div
+                    key={loc.id}
+                    className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+                  >
+
+                    <div className="flex items-start justify-between gap-4">
+
+                      <div className="flex-1">
+
+                        <div className="flex items-center gap-2">
+
+                          <MapPin
+                            size={16}
+                          />
+
+                          <p className="font-semibold text-lg">
+                            {loc.place_name ||
+                              "Unnamed Place"}
+                          </p>
+
+                        </div>
+
+                        <p className="text-zinc-400 text-sm mt-2">
+                          {loc.landmark ||
+                            "No landmark added"}
+                        </p>
+
+                        <div className="flex items-center gap-2 mt-3 text-zinc-500 text-xs">
+
+                          <Clock3
+                            size={14}
+                          />
+
+                          <span>
+                            {formatDate(
+                              loc.created_at
+                            )}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      <a
+                        href={`/lm/${loc.id}`}
+                        className="bg-white text-black px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2"
+                      >
+                        <ExternalLink
+                          size={15}
+                        />
+
+                        Open
+                      </a>
+
+                    </div>
+
+                  </div>
+
+                )
+              )
+            )}
+
+          </div>
+
+        </div>
 
       </div>
     </main>
