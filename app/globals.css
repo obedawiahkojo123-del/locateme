@@ -25,3 +25,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.input{
+  width:100%;
+  background:#27272a;
+  border-radius:16px;
+  padding:14px 16px;
+  outline:none;
+  border:none;
+  color:white;
+}
+
+.input:focus{
+  box-shadow:0 0 0 2px #22c55e;
+}
