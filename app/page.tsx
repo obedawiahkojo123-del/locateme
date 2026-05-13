@@ -16,6 +16,7 @@ import {
   StickyNote,
   Phone,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -28,6 +29,9 @@ const MapView = dynamic(
   () => import("./components/MapView"),
   {
     ssr: false,
+    loading: () => (
+      <div className="h-[420px] bg-zinc-900 animate-pulse rounded-3xl" />
+    ),
   }
 );
 
@@ -35,7 +39,10 @@ export default function HomePage() {
   const [mounted, setMounted] =
     useState(false);
 
-  const [loading, setLoading] =
+  const [loadingLocation, setLoadingLocation] =
+    useState(false);
+
+  const [creating, setCreating] =
     useState(false);
 
   const [position, setPosition] =
@@ -83,21 +90,29 @@ export default function HomePage() {
   useEffect(() => {
     setMounted(true);
 
-    fetchLocation();
+    setTimeout(() => {
+      fetchLocation();
+    }, 800);
   }, []);
 
   const fetchLocation = async () => {
     try {
-      setLoading(true);
+      setLoadingLocation(true);
+
+      if (
+        typeof window === "undefined"
+      ) {
+        return;
+      }
 
       if (
         !navigator.geolocation
       ) {
         alert(
-          "Geolocation not supported"
+          "Geolocation is not supported on this device."
         );
 
-        setLoading(false);
+        setLoadingLocation(false);
 
         return;
       }
@@ -109,29 +124,51 @@ export default function HomePage() {
             pos.coords.longitude,
           ]);
 
-          setLoading(false);
+          setLoadingLocation(false);
         },
 
         (err) => {
           console.log(err);
 
-          alert(
-            "Location permission denied. Please allow location access."
-          );
+          let message =
+            "Unable to fetch your location.";
 
-          setLoading(false);
+          if (
+            err.code === 1
+          ) {
+            message =
+              "Location permission denied. Please allow location access in Safari or Chrome.";
+          }
+
+          if (
+            err.code === 2
+          ) {
+            message =
+              "Location unavailable. Please try again.";
+          }
+
+          if (
+            err.code === 3
+          ) {
+            message =
+              "Location request timed out.";
+          }
+
+          alert(message);
+
+          setLoadingLocation(false);
         },
 
         {
           enableHighAccuracy: true,
-          timeout: 15000,
+          timeout: 20000,
           maximumAge: 0,
         }
       );
     } catch (err) {
       console.log(err);
 
-      setLoading(false);
+      setLoadingLocation(false);
     }
   };
 
@@ -171,12 +208,16 @@ export default function HomePage() {
 
     if (!text) return;
 
+    window.speechSynthesis.cancel();
+
     const speech =
       new SpeechSynthesisUtterance(
         text
       );
 
     speech.rate = 0.92;
+
+    speech.pitch = 1;
 
     window.speechSynthesis.speak(
       speech
@@ -185,7 +226,7 @@ export default function HomePage() {
 
   const createLink = async () => {
     try {
-      setLoading(true);
+      setCreating(true);
 
       const smartGuide =
         generateSmartGuide();
@@ -236,7 +277,7 @@ export default function HomePage() {
 
         alert(error.message);
 
-        setLoading(false);
+        setCreating(false);
 
         return;
       }
@@ -245,19 +286,21 @@ export default function HomePage() {
 
       setShareUrl(url);
 
-      setLoading(false);
+      setCreating(false);
     } catch (err) {
       console.log(err);
 
       alert(
-        "Something went wrong"
+        "Something went wrong."
       );
 
-      setLoading(false);
+      setCreating(false);
     }
   };
 
   const copyLink = async () => {
+    if (!shareUrl) return;
+
     await navigator.clipboard.writeText(
       shareUrl
     );
@@ -270,12 +313,16 @@ export default function HomePage() {
   };
 
   const shareWhatsApp = () => {
+    if (!shareUrl) return;
+
     const text = encodeURIComponent(
       `📍 LocateMe Location\n\n${shareUrl}`
     );
 
-    window.location.href =
-      `https://wa.me/?text=${text}`;
+    window.open(
+      `https://wa.me/?text=${text}`,
+      "_blank"
+    );
   };
 
   if (!mounted) return null;
@@ -285,11 +332,11 @@ export default function HomePage() {
       <div className="max-w-2xl mx-auto">
 
         <div className="mb-8">
-          <h1 className="text-5xl font-black">
+          <h1 className="text-5xl font-black tracking-tight">
             LocateMe
           </h1>
 
-          <p className="text-zinc-400 mt-3 text-lg">
+          <p className="text-zinc-400 mt-3 text-lg leading-7">
             Smart location sharing for
             Africa and beyond.
           </p>
@@ -305,11 +352,19 @@ export default function HomePage() {
 
         <button
           onClick={fetchLocation}
-          className="w-full mt-5 bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          disabled={loadingLocation}
+          className="w-full mt-5 bg-white disabled:opacity-70 text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
         >
-          <Navigation size={18} />
+          {loadingLocation ? (
+            <Loader2
+              size={18}
+              className="animate-spin"
+            />
+          ) : (
+            <Navigation size={18} />
+          )}
 
-          {loading
+          {loadingLocation
             ? "Fetching location..."
             : "Use My Live Location"}
         </button>
@@ -438,11 +493,19 @@ export default function HomePage() {
 
         <button
           onClick={createLink}
-          className="w-full mt-6 bg-green-500 hover:bg-green-400 transition rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2"
+          disabled={creating}
+          className="w-full mt-6 bg-green-500 hover:bg-green-400 disabled:opacity-70 transition rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2"
         >
-          <MapPin size={20} />
+          {creating ? (
+            <Loader2
+              size={20}
+              className="animate-spin"
+            />
+          ) : (
+            <MapPin size={20} />
+          )}
 
-          {loading
+          {creating
             ? "Generating..."
             : "Generate LocateMe Link"}
         </button>
