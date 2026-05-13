@@ -105,35 +105,77 @@ export default function CreatePage() {
     fetchLocation();
   }, []);
 
-  const fetchLocation = () => {
-    setLoading(true);
+  const fetchLocation = async () => {
+    try {
+      setLoading(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setPosition([
-          pos.coords.latitude,
-          pos.coords.longitude,
-        ]);
+      if (
+        typeof window === "undefined"
+      ) {
+        return;
+      }
 
-        setLoading(false);
-      },
-
-      (err) => {
-        console.log(err);
-
+      if (
+        !("geolocation" in navigator)
+      ) {
         alert(
-          "Could not fetch location"
+          "Geolocation is not supported on this device."
         );
 
         setLoading(false);
-      },
 
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
+        return;
       }
-    );
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setPosition([
+            pos.coords.latitude,
+            pos.coords.longitude,
+          ]);
+
+          setLoading(false);
+        },
+
+        (error) => {
+          console.log(error);
+
+          if (
+            error.code === 1
+          ) {
+            alert(
+              "Location permission denied. Please allow location access."
+            );
+          } else if (
+            error.code === 2
+          ) {
+            alert(
+              "Location unavailable."
+            );
+          } else {
+            alert(
+              "Could not fetch your location."
+            );
+          }
+
+          setLoading(false);
+        },
+
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0,
+        }
+      );
+    } catch (err) {
+      console.log(err);
+
+      alert(
+        "Failed to access location."
+      );
+
+      setLoading(false);
+    }
   };
 
   const generateSmartGuide = () => {
@@ -250,6 +292,10 @@ export default function CreatePage() {
     } catch (err) {
       console.log(err);
 
+      alert(
+        "Something went wrong."
+      );
+
       setLoading(false);
     }
   };
@@ -286,7 +332,7 @@ export default function CreatePage() {
             LocateMe
           </h1>
 
-          <p className="text-zinc-400 mt-3 text-lg">
+          <p className="text-zinc-400 mt-3 text-lg leading-7">
             Smart location sharing for
             Africa and beyond.
           </p>
@@ -447,7 +493,7 @@ export default function CreatePage() {
         </button>
 
         {shareUrl && (
-          <div className="mt-6 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5 animate-in fade-in">
+          <div className="mt-6 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5">
 
             <div className="flex items-center gap-2 text-green-400 font-semibold">
               <CheckCircle2 size={18} />
