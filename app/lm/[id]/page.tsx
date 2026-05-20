@@ -196,6 +196,23 @@ export default function LocationPage() {
           speak(
             "Arrival status updated"
           );
+
+          if (data.phone_number) {
+            const message =
+              encodeURIComponent(
+                `📍 LocateMe Update
+
+Your visitor has arrived at the destination.`
+              );
+
+            window.open(
+              `https://wa.me/${data.phone_number.replace(
+                /\+/g,
+                ""
+              )}?text=${message}`,
+              "_blank"
+            );
+          }
         }
 
         setArrivalLoading(false);
@@ -209,6 +226,7 @@ export default function LocationPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
+
         <div className="text-center">
 
           <div className="w-14 h-14 border-4 border-zinc-700 border-t-white rounded-full animate-spin mx-auto mb-5" />
@@ -218,6 +236,7 @@ export default function LocationPage() {
           </p>
 
         </div>
+
       </main>
     );
   }
@@ -225,6 +244,7 @@ export default function LocationPage() {
   if (!data) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
+
         <div className="text-center">
 
           <h1 className="text-4xl font-black">
@@ -237,6 +257,7 @@ export default function LocationPage() {
           </p>
 
         </div>
+
       </main>
     );
   }
@@ -248,7 +269,7 @@ export default function LocationPage() {
     `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}`;
 
   const boltLink =
-    `https://bolt.eu/ride/?destination=${data.latitude},${data.longitude}`;
+    `https://bolt.eu/en-gh/cities/accra/`;
 
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden">
