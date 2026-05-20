@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import Link from "next/link";
+
 import dynamic from "next/dynamic";
 
 import {
@@ -16,6 +18,7 @@ import {
   StickyNote,
   Phone,
   CheckCircle2,
+  LayoutDashboard,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -45,6 +48,9 @@ export default function CreatePage() {
     ]);
 
   const [shareUrl, setShareUrl] =
+    useState("");
+
+  const [dashboardUrl, setDashboardUrl] =
     useState("");
 
   const [copied, setCopied] =
@@ -144,7 +150,7 @@ export default function CreatePage() {
             error.code === 1
           ) {
             alert(
-              "Location permission denied. Please allow location access."
+              "Location permission denied."
             );
           } else if (
             error.code === 2
@@ -238,11 +244,19 @@ export default function CreatePage() {
         .substring(2, 8)
         .toUpperCase();
 
+      const dashboardId =
+        Math.random()
+          .toString(36)
+          .substring(2, 10);
+
       const { error } =
         await supabase
           .from("locations")
           .insert({
             id,
+
+            dashboard_id:
+              dashboardId,
 
             latitude: position[0],
 
@@ -286,7 +300,12 @@ export default function CreatePage() {
 
       const url = `${window.location.origin}/lm/${id}`;
 
+      const dash =
+        `${window.location.origin}/dashboard/${dashboardId}`;
+
       setShareUrl(url);
+
+      setDashboardUrl(dash);
 
       setLoading(false);
     } catch (err) {
@@ -542,6 +561,14 @@ export default function CreatePage() {
               </button>
 
             </div>
+
+            <Link
+              href={dashboardUrl}
+              className="w-full bg-purple-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+            >
+              <LayoutDashboard size={18} />
+              Open Sender Dashboard
+            </Link>
 
             <div className="bg-white rounded-2xl p-5 flex justify-center">
               <QRCodeSVG

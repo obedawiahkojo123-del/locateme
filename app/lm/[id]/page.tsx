@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   LocateFixed,
   Car,
+  BellRing,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -51,6 +52,8 @@ interface LocationData {
   smart_guide: string;
 
   phone_number: string;
+
+  place_name?: string;
 
   arrived: boolean;
 }
@@ -88,6 +91,8 @@ export default function LocationPage() {
         );
 
         getDistance(data);
+
+        subscribeToArrival(data.id);
       }
 
       setLoading(false);
@@ -95,6 +100,63 @@ export default function LocationPage() {
 
     fetchLocation();
   }, [params]);
+
+  const subscribeToArrival = (
+    locationId: string
+  ) => {
+    supabase
+      .channel(`arrival-${locationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "locations",
+          filter: `id=eq.${locationId}`,
+        },
+        (payload: any) => {
+          if (
+            payload.new.arrived === true
+          ) {
+            setData((prev: any) => ({
+              ...prev,
+              arrived: true,
+            }));
+
+            speak(
+              "Receiver has arrived at destination"
+            );
+
+            if (
+              Notification.permission ===
+              "granted"
+            ) {
+              new Notification(
+                "LocateMe Arrival",
+                {
+                  body:
+                    "Your visitor has arrived.",
+                }
+              );
+            }
+          }
+        }
+      )
+      .subscribe();
+  };
+
+  const requestNotificationPermission =
+    async () => {
+      if (
+        "Notification" in window
+      ) {
+        await Notification.requestPermission();
+      }
+    };
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   const getDistance = (
     destination: LocationData
@@ -190,7 +252,7 @@ export default function LocationPage() {
           );
 
           alert(
-            "Sender has been notified of your arrival."
+            "Sender has been notified instantly."
           );
         }
 
@@ -222,21 +284,35 @@ export default function LocationPage() {
     `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}`;
 
   const uberLink =
-    `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=LocateMe`;
+    `uber://?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=${encodeURIComponent(
+      data.place_name || "LocateMe"
+    )}`;
 
-  const boltAppLink =
+  const boltLink =
     `bolt://ride?destination_lat=${data.latitude}&destination_lng=${data.longitude}`;
 
-  const openBolt = () => {
+  const openUber = () => {
     window.location.href =
-      boltAppLink;
+      uberLink;
 
     setTimeout(() => {
       window.open(
         googleMapsLink,
         "_blank"
       );
-    }, 1500);
+    }, 1800);
+  };
+
+  const openBolt = () => {
+    window.location.href =
+      boltLink;
+
+    setTimeout(() => {
+      window.open(
+        googleMapsLink,
+        "_blank"
+      );
+    }, 1800);
   };
 
   return (
@@ -244,11 +320,11 @@ export default function LocationPage() {
       <div className="max-w-2xl mx-auto">
 
         <div className="mb-6">
-          <h1 className="text-5xl font-bold">
+          <h1 className="text-5xl font-black">
             Destination
           </h1>
 
-          <p className="text-zinc-400 mt-2">
+          <p className="text-zinc-400 mt-2 leading-7">
             Someone shared a LocateMe pin with you
           </p>
         </div>
@@ -278,7 +354,7 @@ export default function LocationPage() {
         {data.arrived && (
           <div className="mt-4 bg-blue-600 rounded-2xl p-4 flex items-center gap-3 font-semibold">
 
-            <CheckCircle2 size={20} />
+            <BellRing size={20} />
 
             <span>
               Receiver has arrived
@@ -378,7 +454,7 @@ export default function LocationPage() {
               Smart Guidance
             </p>
 
-            <p className="text-sm">
+            <p className="text-sm leading-7">
               {data.smart_guide}
             </p>
           </div>
@@ -420,13 +496,13 @@ export default function LocationPage() {
               : "I've Arrived"}
           </button>
 
-          <a
-            href={uberLink}
+          <button
+            onClick={openUber}
             className="w-full bg-black border border-zinc-700 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
           >
             <Car size={18} />
             Ride with Uber
-          </a>
+          </button>
 
           <button
             onClick={openBolt}
