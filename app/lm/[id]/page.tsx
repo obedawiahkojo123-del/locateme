@@ -6,8 +6,6 @@ import { useParams } from "next/navigation";
 
 import dynamic from "next/dynamic";
 
-import Link from "next/link";
-
 import {
   Navigation,
   MapPin,
@@ -20,7 +18,6 @@ import {
   CheckCircle2,
   LocateFixed,
   Car,
-  LayoutDashboard,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -56,8 +53,6 @@ interface LocationData {
   phone_number: string;
 
   arrived: boolean;
-
-  place_name?: string;
 }
 
 export default function LocationPage() {
@@ -195,7 +190,7 @@ export default function LocationPage() {
           );
 
           alert(
-            "Arrival status sent successfully."
+            "Sender has been notified of your arrival."
           );
         }
 
@@ -223,34 +218,39 @@ export default function LocationPage() {
     );
   }
 
-  const googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${data.latitude},${data.longitude}`;
+  const googleMapsLink =
+    `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}`;
 
-  const uberLink = `uber://?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=LocateMe`;
+  const uberLink =
+    `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=LocateMe`;
+
+  const boltAppLink =
+    `bolt://ride?destination_lat=${data.latitude}&destination_lng=${data.longitude}`;
+
+  const openBolt = () => {
+    window.location.href =
+      boltAppLink;
+
+    setTimeout(() => {
+      window.open(
+        googleMapsLink,
+        "_blank"
+      );
+    }, 1500);
+  };
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-6">
       <div className="max-w-2xl mx-auto">
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
+          <h1 className="text-5xl font-bold">
+            Destination
+          </h1>
 
-          <div>
-            <h1 className="text-5xl font-bold">
-              Destination
-            </h1>
-
-            <p className="text-zinc-400 mt-2">
-              Someone shared a LocateMe pin with you
-            </p>
-          </div>
-
-          <Link
-            href="/dashboard"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 flex items-center gap-2"
-          >
-            <LayoutDashboard size={18} />
-            Dashboard
-          </Link>
-
+          <p className="text-zinc-400 mt-2">
+            Someone shared a LocateMe pin with you
+          </p>
         </div>
 
         <div className="rounded-3xl overflow-hidden border border-zinc-800">
@@ -289,35 +289,89 @@ export default function LocationPage() {
 
         <div className="mt-5 space-y-4">
 
-          <InfoCard
-            icon={<MapPin size={18} />}
-            title="Landmark"
-            value={data.landmark}
-          />
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
 
-          <InfoCard
-            icon={<Building2 size={18} />}
-            title="Building Color"
-            value={data.building_color}
-          />
+            <MapPin size={18} />
 
-          <InfoCard
-            icon={<Home size={18} />}
-            title="Apartment / Gate Side"
-            value={data.apartment_side}
-          />
+            <div>
+              <p className="text-sm text-zinc-400">
+                Landmark
+              </p>
 
-          <InfoCard
-            icon={<Layers3 size={18} />}
-            title="Floor / Room"
-            value={data.floor_note}
-          />
+              <p className="font-semibold mt-1">
+                {data.landmark || "N/A"}
+              </p>
+            </div>
 
-          <InfoCard
-            icon={<StickyNote size={18} />}
-            title="Arrival Note"
-            value={data.arrival_note}
-          />
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
+
+            <Building2 size={18} />
+
+            <div>
+              <p className="text-sm text-zinc-400">
+                Building Color
+              </p>
+
+              <p className="font-semibold mt-1">
+                {data.building_color ||
+                  "N/A"}
+              </p>
+            </div>
+
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
+
+            <Home size={18} />
+
+            <div>
+              <p className="text-sm text-zinc-400">
+                Apartment / Gate Side
+              </p>
+
+              <p className="font-semibold mt-1">
+                {data.apartment_side ||
+                  "N/A"}
+              </p>
+            </div>
+
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
+
+            <Layers3 size={18} />
+
+            <div>
+              <p className="text-sm text-zinc-400">
+                Floor / Room
+              </p>
+
+              <p className="font-semibold mt-1">
+                {data.floor_note ||
+                  "N/A"}
+              </p>
+            </div>
+
+          </div>
+
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
+
+            <StickyNote size={18} />
+
+            <div>
+              <p className="text-sm text-zinc-400">
+                Arrival Note
+              </p>
+
+              <p className="font-semibold mt-1">
+                {data.arrival_note ||
+                  "No extra note"}
+              </p>
+            </div>
+
+          </div>
 
           <div className="bg-zinc-800 rounded-2xl p-4">
             <p className="text-sm text-zinc-400 mb-2">
@@ -367,58 +421,33 @@ export default function LocationPage() {
           </button>
 
           <a
-            href={googleMapsLink}
-            target="_blank"
-            className="w-full bg-green-500 text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
-          >
-            <Navigation size={18} />
-            Open In Google Maps
-          </a>
-
-          <a
             href={uberLink}
             className="w-full bg-black border border-zinc-700 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
           >
             <Car size={18} />
-            Open In Uber
+            Ride with Uber
           </a>
+
+          <button
+            onClick={openBolt}
+            className="w-full bg-green-500 text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          >
+            <Car size={18} />
+            Ride with Bolt
+          </button>
 
           <a
             href={googleMapsLink}
             target="_blank"
-            className="w-full bg-[#34D186] text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+            className="w-full bg-zinc-800 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
           >
-            <Car size={18} />
-            Open In Bolt / Maps
+            <Navigation size={18} />
+            Open In Google Maps
           </a>
 
         </div>
 
       </div>
     </main>
-  );
-}
-
-function InfoCard({
-  icon,
-  title,
-  value,
-}: any) {
-  return (
-    <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
-
-      {icon}
-
-      <div>
-        <p className="text-sm text-zinc-400">
-          {title}
-        </p>
-
-        <p className="font-semibold mt-1">
-          {value || "N/A"}
-        </p>
-      </div>
-
-    </div>
   );
 }
