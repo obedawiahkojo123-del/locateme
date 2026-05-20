@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 
 import dynamic from "next/dynamic";
 
+import Link from "next/link";
+
 import {
   Navigation,
   MapPin,
@@ -17,6 +19,8 @@ import {
   Phone,
   CheckCircle2,
   LocateFixed,
+  Car,
+  LayoutDashboard,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -73,26 +77,22 @@ export default function LocationPage() {
 
   useEffect(() => {
     async function fetchLocation() {
-      try {
-        const { data, error } =
-          await supabase
-            .from("locations")
-            .select("*")
-            .eq("id", params.id)
-            .single();
+      const { data, error } =
+        await supabase
+          .from("locations")
+          .select("*")
+          .eq("id", params.id)
+          .single();
 
-        if (!error && data) {
-          setData(data);
+      if (!error && data) {
+        setData(data);
 
-          speak(
-            data.smart_guide ||
-              `Destination loaded near ${data.landmark}`
-          );
+        speak(
+          data.smart_guide ||
+            `Destination loaded near ${data.landmark}`
+        );
 
-          getDistance(data);
-        }
-      } catch (err) {
-        console.log(err);
+        getDistance(data);
       }
 
       setLoading(false);
@@ -104,9 +104,6 @@ export default function LocationPage() {
   const getDistance = (
     destination: LocationData
   ) => {
-    if (!navigator.geolocation)
-      return;
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat1 =
@@ -197,22 +194,9 @@ export default function LocationPage() {
             "Arrival status updated"
           );
 
-          if (data.phone_number) {
-            const message =
-              encodeURIComponent(
-                `📍 LocateMe Update
-
-Your visitor has arrived at the destination.`
-              );
-
-            window.open(
-              `https://wa.me/${data.phone_number.replace(
-                /\+/g,
-                ""
-              )}?text=${message}`,
-              "_blank"
-            );
-          }
+          alert(
+            "Arrival status sent successfully."
+          );
         }
 
         setArrivalLoading(false);
@@ -226,17 +210,7 @@ Your visitor has arrived at the destination.`
   if (loading) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
-
-        <div className="text-center">
-
-          <div className="w-14 h-14 border-4 border-zinc-700 border-t-white rounded-full animate-spin mx-auto mb-5" />
-
-          <p className="text-zinc-400">
-            Loading destination...
-          </p>
-
-        </div>
-
+        Loading destination...
       </main>
     );
   }
@@ -244,61 +218,42 @@ Your visitor has arrived at the destination.`
   if (!data) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
-
-        <div className="text-center">
-
-          <h1 className="text-4xl font-black">
-            Location Not Found
-          </h1>
-
-          <p className="text-zinc-500 mt-3">
-            This LocateMe link may
-            have expired.
-          </p>
-
-        </div>
-
+        Location not found.
       </main>
     );
   }
 
-  const liveMapLink =
-    `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+  const googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${data.latitude},${data.longitude}`;
 
-  const uberLink =
-    `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}`;
-
-  const boltLink =
-    `https://bolt.eu/en-gh/cities/accra/`;
+  const uberLink = `uber://?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=LocateMe`;
 
   return (
-    <main className="min-h-screen bg-black text-white overflow-hidden">
+    <main className="min-h-screen bg-black text-white px-4 py-6">
+      <div className="max-w-2xl mx-auto">
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
 
-        <div className="mb-8">
+          <div>
+            <h1 className="text-5xl font-bold">
+              Destination
+            </h1>
 
-          <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-full text-sm text-zinc-300 mb-5">
-
-            <MapPin size={15} />
-
-            LocateMe Destination
+            <p className="text-zinc-400 mt-2">
+              Someone shared a LocateMe pin with you
+            </p>
           </div>
 
-          <h1 className="text-5xl font-black tracking-tight">
-            {data.place_name ||
-              "Destination"}
-          </h1>
-
-          <p className="text-zinc-400 mt-3 text-lg leading-7">
-            Someone shared a smart
-            location with you.
-          </p>
+          <Link
+            href="/dashboard"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 flex items-center gap-2"
+          >
+            <LayoutDashboard size={18} />
+            Dashboard
+          </Link>
 
         </div>
 
-        <div className="rounded-[2rem] overflow-hidden border border-zinc-800 shadow-2xl">
-
+        <div className="rounded-3xl overflow-hidden border border-zinc-800">
           <MapView
             position={[
               data.latitude,
@@ -306,11 +261,10 @@ Your visitor has arrived at the destination.`
             ]}
             draggable={false}
           />
-
         </div>
 
         {distanceAway && (
-          <div className="mt-5 bg-gradient-to-r from-green-500 to-emerald-400 text-black rounded-2xl p-4 flex items-center gap-3 font-bold shadow-lg">
+          <div className="mt-4 bg-green-500 text-black rounded-2xl p-4 flex items-center gap-3 font-semibold">
 
             <LocateFixed size={20} />
 
@@ -333,94 +287,7 @@ Your visitor has arrived at the destination.`
           </div>
         )}
 
-        <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-
-          <p className="text-sm text-zinc-500 mb-2">
-            Smart Guidance
-          </p>
-
-          <p className="text-lg leading-8">
-            {data.smart_guide ||
-              "No smart guide available"}
-          </p>
-
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-5">
-
-          <button
-            onClick={() =>
-              speak(data.smart_guide)
-            }
-            className="bg-blue-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
-          >
-            <Volume2 size={18} />
-            Voice Guide
-          </button>
-
-          {data.phone_number ? (
-            <a
-              href={`tel:${data.phone_number}`}
-              className="bg-zinc-800 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
-            >
-              <Phone size={18} />
-              Call
-            </a>
-          ) : (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl py-4 text-center text-zinc-500">
-              No Phone
-            </div>
-          )}
-
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-3">
-
-          <a
-            href={uberLink}
-            target="_blank"
-            className="bg-black border border-zinc-700 rounded-2xl py-4 font-bold flex items-center justify-center"
-          >
-            Uber
-          </a>
-
-          <a
-            href={boltLink}
-            target="_blank"
-            className="bg-green-500 text-black rounded-2xl py-4 font-bold flex items-center justify-center"
-          >
-            Bolt
-          </a>
-
-        </div>
-
-        <a
-          href={liveMapLink}
-          target="_blank"
-          className="w-full mt-3 bg-white text-black rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2"
-        >
-          <Navigation size={20} />
-          Open In Google Maps
-        </a>
-
-        <button
-          onClick={markArrived}
-          disabled={
-            data.arrived ||
-            arrivalLoading
-          }
-          className="w-full mt-3 bg-purple-600 rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <CheckCircle2 size={20} />
-
-          {data.arrived
-            ? "Arrived"
-            : arrivalLoading
-            ? "Updating..."
-            : "I've Arrived"}
-        </button>
-
-        <div className="mt-8 space-y-4">
+        <div className="mt-5 space-y-4">
 
           <InfoCard
             icon={<MapPin size={18} />}
@@ -452,10 +319,82 @@ Your visitor has arrived at the destination.`
             value={data.arrival_note}
           />
 
+          <div className="bg-zinc-800 rounded-2xl p-4">
+            <p className="text-sm text-zinc-400 mb-2">
+              Smart Guidance
+            </p>
+
+            <p className="text-sm">
+              {data.smart_guide}
+            </p>
+          </div>
+
+          <button
+            onClick={() =>
+              speak(data.smart_guide)
+            }
+            className="w-full bg-blue-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          >
+            <Volume2 size={18} />
+            Play Voice Guide
+          </button>
+
+          {data.phone_number && (
+            <a
+              href={`tel:${data.phone_number}`}
+              className="w-full bg-zinc-800 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+            >
+              <Phone size={18} />
+              Call Sender
+            </a>
+          )}
+
+          <button
+            onClick={markArrived}
+            disabled={
+              data.arrived ||
+              arrivalLoading
+            }
+            className="w-full bg-purple-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <CheckCircle2 size={18} />
+
+            {data.arrived
+              ? "Arrived"
+              : arrivalLoading
+              ? "Updating..."
+              : "I've Arrived"}
+          </button>
+
+          <a
+            href={googleMapsLink}
+            target="_blank"
+            className="w-full bg-green-500 text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          >
+            <Navigation size={18} />
+            Open In Google Maps
+          </a>
+
+          <a
+            href={uberLink}
+            className="w-full bg-black border border-zinc-700 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          >
+            <Car size={18} />
+            Open In Uber
+          </a>
+
+          <a
+            href={googleMapsLink}
+            target="_blank"
+            className="w-full bg-[#34D186] text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          >
+            <Car size={18} />
+            Open In Bolt / Maps
+          </a>
+
         </div>
 
       </div>
-
     </main>
   );
 }
@@ -466,18 +405,16 @@ function InfoCard({
   value,
 }: any) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-start gap-3">
+    <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-start gap-3">
 
-      <div className="mt-1">
-        {icon}
-      </div>
+      {icon}
 
       <div>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-zinc-400">
           {title}
         </p>
 
-        <p className="font-semibold mt-1 leading-7">
+        <p className="font-semibold mt-1">
           {value || "N/A"}
         </p>
       </div>
