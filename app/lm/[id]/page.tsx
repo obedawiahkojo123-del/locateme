@@ -73,14 +73,9 @@ export default function LocationPage() {
   const [arrivalLoading, setArrivalLoading] =
     useState(false);
 
-  const [notificationSent, setNotificationSent] =
-    useState(false);
-
   useEffect(() => {
     requestNotificationPermission();
-  }, []);
 
-  useEffect(() => {
     async function fetchLocation() {
       const { data, error } =
         await supabase
@@ -108,10 +103,21 @@ export default function LocationPage() {
     fetchLocation();
   }, [params]);
 
+  const requestNotificationPermission =
+    async () => {
+      if (
+        typeof window !==
+          "undefined" &&
+        "Notification" in window
+      ) {
+        await Notification.requestPermission();
+      }
+    };
+
   const subscribeToArrival = (
     locationId: string
   ) => {
-    const channel = supabase
+    supabase
       .channel(`arrival-${locationId}`)
       .on(
         "postgres_changes",
@@ -123,54 +129,35 @@ export default function LocationPage() {
         },
         (payload: any) => {
           if (
-            payload.new.arrived === true
+            payload.new.arrived ===
+            true
           ) {
             setData((prev: any) => ({
               ...prev,
               arrived: true,
             }));
 
-            if (!notificationSent) {
-              speak(
-                "Receiver has arrived at destination"
+            speak(
+              "Receiver has arrived at destination"
+            );
+
+            if (
+              Notification.permission ===
+              "granted"
+            ) {
+              new Notification(
+                "LocateMe Arrival",
+                {
+                  body:
+                    "Your visitor has arrived.",
+                }
               );
-
-              if (
-                "Notification" in window &&
-                Notification.permission ===
-                  "granted"
-              ) {
-                new Notification(
-                  "LocateMe Arrival",
-                  {
-                    body:
-                      "Your visitor has arrived successfully.",
-                  }
-                );
-              }
-
-              setNotificationSent(true);
             }
           }
         }
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   };
-
-  const requestNotificationPermission =
-    async () => {
-      if (
-        "Notification" in window &&
-        Notification.permission !==
-          "granted"
-      ) {
-        await Notification.requestPermission();
-      }
-    };
 
   const getDistance = (
     destination: LocationData
@@ -266,7 +253,7 @@ export default function LocationPage() {
           );
 
           alert(
-            "Sender notified successfully."
+            "Sender has been notified instantly."
           );
         }
 
@@ -297,17 +284,30 @@ export default function LocationPage() {
   const googleMapsLink =
     `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}`;
 
-  const uberWebLink =
-    `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=${encodeURIComponent(
-      data.place_name || "LocateMe"
+  const uberDeepLink =
+    `uber://?client_id=&action=setPickup&pickup=my_location&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[formatted_address]=${encodeURIComponent(
+      data.place_name ||
+        data.landmark ||
+        "LocateMe Destination"
     )}`;
 
-  const boltWebLink =
-    `https://bolt.eu/en-gh/`;
+  const uberFallbackLink =
+    `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[formatted_address]=${encodeURIComponent(
+      data.place_name ||
+        data.landmark ||
+        "LocateMe Destination"
+    )}`;
 
   const openUber = () => {
     window.location.href =
-      uberWebLink;
+      uberDeepLink;
+
+    setTimeout(() => {
+      window.open(
+        uberFallbackLink,
+        "_blank"
+      );
+    }, 1500);
   };
 
   const openBolt = () => {
@@ -315,11 +315,6 @@ export default function LocationPage() {
       googleMapsLink,
       "_blank"
     );
-
-    setTimeout(() => {
-      window.location.href =
-        boltWebLink;
-    }, 1200);
   };
 
   return (
