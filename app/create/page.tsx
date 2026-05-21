@@ -19,6 +19,7 @@ import {
   Phone,
   CheckCircle2,
   LayoutDashboard,
+  Sparkles,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -33,6 +34,9 @@ const MapView = dynamic(
     ssr: false,
   }
 );
+
+const STORAGE_KEY =
+  "locateme_create_draft";
 
 export default function CreatePage() {
   const [mounted, setMounted] =
@@ -109,7 +113,118 @@ export default function CreatePage() {
     setMounted(true);
 
     fetchLocation();
+
+    restoreDraft();
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    saveDraft();
+  }, [
+    landmark,
+    buildingColor,
+    apartmentSide,
+    floorNote,
+    arrivalNote,
+    phoneNumber,
+    placeName,
+    position,
+    mounted,
+  ]);
+
+  const saveDraft = () => {
+    const draft = {
+      landmark,
+      buildingColor,
+      apartmentSide,
+      floorNote,
+      arrivalNote,
+      phoneNumber,
+      placeName,
+      position,
+      shareUrl,
+      dashboardUrl,
+      generatedGuide,
+    };
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(draft)
+    );
+  };
+
+  const restoreDraft = () => {
+    const raw =
+      localStorage.getItem(
+        STORAGE_KEY
+      );
+
+    if (!raw) return;
+
+    try {
+      const draft = JSON.parse(raw);
+
+      if (draft.landmark)
+        setLandmark(draft.landmark);
+
+      if (draft.buildingColor)
+        setBuildingColor(
+          draft.buildingColor
+        );
+
+      if (draft.apartmentSide)
+        setApartmentSide(
+          draft.apartmentSide
+        );
+
+      if (draft.floorNote)
+        setFloorNote(
+          draft.floorNote
+        );
+
+      if (draft.arrivalNote)
+        setArrivalNote(
+          draft.arrivalNote
+        );
+
+      if (draft.phoneNumber)
+        setPhoneNumber(
+          draft.phoneNumber
+        );
+
+      if (draft.placeName)
+        setPlaceName(
+          draft.placeName
+        );
+
+      if (draft.position)
+        setPosition(draft.position);
+
+      if (draft.shareUrl)
+        setShareUrl(
+          draft.shareUrl
+        );
+
+      if (draft.dashboardUrl)
+        setDashboardUrl(
+          draft.dashboardUrl
+        );
+
+      if (draft.generatedGuide)
+        setGeneratedGuide(
+          draft.generatedGuide
+        );
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(
+      STORAGE_KEY
+    );
+  };
 
   const fetchLocation = async () => {
     try {
@@ -308,6 +423,8 @@ export default function CreatePage() {
       setDashboardUrl(dash);
 
       setLoading(false);
+
+      saveDraft();
     } catch (err) {
       console.log(err);
 
@@ -344,9 +461,18 @@ export default function CreatePage() {
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-6">
+
       <div className="max-w-2xl mx-auto">
 
         <div className="mb-8">
+
+          <div className="flex items-center gap-2 text-green-400 mb-4">
+            <Sparkles size={18} />
+            <span className="text-sm font-semibold">
+              Elite Navigation System
+            </span>
+          </div>
+
           <h1 className="text-5xl font-black tracking-tight">
             LocateMe
           </h1>
@@ -355,9 +481,11 @@ export default function CreatePage() {
             Smart location sharing for
             Africa and beyond.
           </p>
+
         </div>
 
         <div className="rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl">
+
           {leafletIcon && (
             <MapView
               position={position}
@@ -365,6 +493,7 @@ export default function CreatePage() {
               draggable={true}
             />
           )}
+
         </div>
 
         <button
@@ -520,6 +649,7 @@ export default function CreatePage() {
             </div>
 
             <div>
+
               <p className="text-sm text-zinc-400 mb-2">
                 Share Link
               </p>
@@ -527,9 +657,11 @@ export default function CreatePage() {
               <div className="bg-zinc-800 rounded-xl p-4 text-sm break-all">
                 {shareUrl}
               </div>
+
             </div>
 
             <div className="bg-zinc-800 rounded-2xl p-4">
+
               <p className="text-sm text-zinc-400 mb-2">
                 Smart Guide
               </p>
@@ -537,6 +669,7 @@ export default function CreatePage() {
               <p className="text-sm leading-7">
                 {generatedGuide}
               </p>
+
             </div>
 
             <div className="flex gap-3">
@@ -570,11 +703,20 @@ export default function CreatePage() {
               Open Sender Dashboard
             </Link>
 
+            <button
+              onClick={clearDraft}
+              className="w-full bg-zinc-800 rounded-2xl py-4 font-semibold"
+            >
+              Clear Draft
+            </button>
+
             <div className="bg-white rounded-2xl p-5 flex justify-center">
+
               <QRCodeSVG
                 value={shareUrl}
                 size={190}
               />
+
             </div>
 
             <button
@@ -589,6 +731,7 @@ export default function CreatePage() {
         )}
 
       </div>
+
     </main>
   );
 }
@@ -600,12 +743,14 @@ function InputCard({
 }: any) {
   return (
     <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+
       <label className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
         {icon}
         {title}
       </label>
 
       {children}
+
     </div>
   );
 }
