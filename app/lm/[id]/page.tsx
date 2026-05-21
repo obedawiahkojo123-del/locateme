@@ -73,6 +73,13 @@ export default function LocationPage() {
   const [arrivalLoading, setArrivalLoading] =
     useState(false);
 
+  const [notificationSent, setNotificationSent] =
+    useState(false);
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
   useEffect(() => {
     async function fetchLocation() {
       const { data, error } =
@@ -104,7 +111,7 @@ export default function LocationPage() {
   const subscribeToArrival = (
     locationId: string
   ) => {
-    supabase
+    const channel = supabase
       .channel(`arrival-${locationId}`)
       .on(
         "postgres_changes",
@@ -123,40 +130,47 @@ export default function LocationPage() {
               arrived: true,
             }));
 
-            speak(
-              "Receiver has arrived at destination"
-            );
-
-            if (
-              Notification.permission ===
-              "granted"
-            ) {
-              new Notification(
-                "LocateMe Arrival",
-                {
-                  body:
-                    "Your visitor has arrived.",
-                }
+            if (!notificationSent) {
+              speak(
+                "Receiver has arrived at destination"
               );
+
+              if (
+                "Notification" in window &&
+                Notification.permission ===
+                  "granted"
+              ) {
+                new Notification(
+                  "LocateMe Arrival",
+                  {
+                    body:
+                      "Your visitor has arrived successfully.",
+                  }
+                );
+              }
+
+              setNotificationSent(true);
             }
           }
         }
       )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
 
   const requestNotificationPermission =
     async () => {
       if (
-        "Notification" in window
+        "Notification" in window &&
+        Notification.permission !==
+          "granted"
       ) {
         await Notification.requestPermission();
       }
     };
-
-  useEffect(() => {
-    requestNotificationPermission();
-  }, []);
 
   const getDistance = (
     destination: LocationData
@@ -252,7 +266,7 @@ export default function LocationPage() {
           );
 
           alert(
-            "Sender has been notified instantly."
+            "Sender notified successfully."
           );
         }
 
@@ -283,36 +297,29 @@ export default function LocationPage() {
   const googleMapsLink =
     `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}`;
 
-  const uberLink =
-    `uber://?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=${encodeURIComponent(
+  const uberWebLink =
+    `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${data.latitude}&dropoff[longitude]=${data.longitude}&dropoff[nickname]=${encodeURIComponent(
       data.place_name || "LocateMe"
     )}`;
 
-  const boltLink =
-    `bolt://ride?destination_lat=${data.latitude}&destination_lng=${data.longitude}`;
+  const boltWebLink =
+    `https://bolt.eu/en-gh/`;
 
   const openUber = () => {
     window.location.href =
-      uberLink;
-
-    setTimeout(() => {
-      window.open(
-        googleMapsLink,
-        "_blank"
-      );
-    }, 1800);
+      uberWebLink;
   };
 
   const openBolt = () => {
-    window.location.href =
-      boltLink;
+    window.open(
+      googleMapsLink,
+      "_blank"
+    );
 
     setTimeout(() => {
-      window.open(
-        googleMapsLink,
-        "_blank"
-      );
-    }, 1800);
+      window.location.href =
+        boltWebLink;
+    }, 1200);
   };
 
   return (
