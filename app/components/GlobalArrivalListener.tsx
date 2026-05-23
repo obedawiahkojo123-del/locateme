@@ -2,12 +2,14 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
 import {
   BellRing,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 
 import { supabase } from "../lib/supabase";
@@ -19,7 +21,17 @@ export default function GlobalArrivalListener() {
   const [arrivalPlace, setArrivalPlace] =
     useState("");
 
+  const timeoutRef =
+    useRef<NodeJS.Timeout | null>(
+      null
+    );
+
   useEffect(() => {
+    if (
+      typeof window === "undefined"
+    )
+      return;
+
     if (
       "Notification" in window &&
       Notification.permission !==
@@ -53,16 +65,23 @@ export default function GlobalArrivalListener() {
 
             setShowPopup(true);
 
-            const audio =
-              new Audio(
-                "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
-              );
+            try {
+              const audio =
+                new Audio(
+                  "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+                );
 
-            audio.play();
+              audio.volume = 1;
+
+              audio.play();
+            } catch (err) {
+              console.log(err);
+            }
 
             if (
+              "Notification" in window &&
               Notification.permission ===
-              "granted"
+                "granted"
             ) {
               new Notification(
                 "LocateMe Arrival",
@@ -72,70 +91,92 @@ export default function GlobalArrivalListener() {
               );
             }
 
-            setTimeout(() => {
-              setShowPopup(false);
-            }, 6000);
+            if (timeoutRef.current) {
+              clearTimeout(
+                timeoutRef.current
+              );
+            }
+
+            timeoutRef.current =
+              setTimeout(() => {
+                setShowPopup(false);
+              }, 6500);
           }
         }
       )
       .subscribe();
 
     return () => {
+      if (timeoutRef.current) {
+        clearTimeout(
+          timeoutRef.current
+        );
+      }
+
       supabase.removeChannel(
         channel
       );
     };
   }, []);
 
+  if (!showPopup) return null;
+
   return (
-    <>
-      {showPopup && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6">
 
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-pulse" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-pulse" />
 
-          <div className="relative bg-zinc-900 border border-green-500 rounded-[2rem] p-8 w-full max-w-md shadow-[0_0_80px_rgba(34,197,94,0.45)] animate-bounce">
+      <div className="relative overflow-hidden bg-zinc-900 border border-green-500 rounded-[2rem] p-8 w-full max-w-md shadow-[0_0_100px_rgba(34,197,94,0.45)] animate-[bounce_1.2s_ease-in-out]">
 
-            <div className="flex items-center justify-center mb-5">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-300" />
 
-              <div className="w-24 h-24 rounded-full bg-green-500 flex items-center justify-center">
+        <div className="flex items-center justify-center mb-6">
 
-                <CheckCircle2
-                  size={50}
-                  className="text-black"
-                />
+          <div className="relative">
 
-              </div>
+            <div className="absolute inset-0 rounded-full bg-green-500 blur-2xl opacity-60 animate-ping" />
 
-            </div>
+            <div className="relative w-24 h-24 rounded-full bg-green-500 flex items-center justify-center">
 
-            <div className="text-center">
-
-              <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-lg mb-3">
-
-                <BellRing size={20} />
-
-                LIVE ARRIVAL
-              </div>
-
-              <h2 className="text-3xl font-black mb-3">
-                Visitor Arrived
-              </h2>
-
-              <p className="text-zinc-300 leading-7">
-                Your visitor has arrived at
-                <span className="text-white font-bold">
-                  {" "}
-                  {arrivalPlace}
-                </span>
-              </p>
+              <CheckCircle2
+                size={50}
+                className="text-black"
+              />
 
             </div>
 
           </div>
 
         </div>
-      )}
-    </>
+
+        <div className="text-center">
+
+          <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-lg mb-3">
+
+            <BellRing size={20} />
+
+            LIVE ARRIVAL
+
+            <Sparkles size={18} />
+
+          </div>
+
+          <h2 className="text-3xl font-black mb-4">
+            Visitor Arrived
+          </h2>
+
+          <p className="text-zinc-300 leading-7 text-lg">
+            Your visitor has successfully
+            arrived at
+            <span className="block text-white font-bold text-2xl mt-2">
+              {arrivalPlace}
+            </span>
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
   );
 }
