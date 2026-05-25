@@ -20,6 +20,9 @@ import {
   CheckCircle2,
   LayoutDashboard,
   Sparkles,
+  LocateFixed,
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -131,6 +134,9 @@ export default function CreatePage() {
     placeName,
     position,
     mounted,
+    generatedGuide,
+    shareUrl,
+    dashboardUrl,
   ]);
 
   const saveDraft = () => {
@@ -155,66 +161,63 @@ export default function CreatePage() {
   };
 
   const restoreDraft = () => {
-    const raw =
-      localStorage.getItem(
-        STORAGE_KEY
-      );
-
-    if (!raw) return;
-
     try {
+      const raw =
+        localStorage.getItem(
+          STORAGE_KEY
+        );
+
+      if (!raw) return;
+
       const draft = JSON.parse(raw);
 
-      if (draft.landmark)
-        setLandmark(draft.landmark);
+      setLandmark(
+        draft.landmark || ""
+      );
 
-      if (draft.buildingColor)
-        setBuildingColor(
-          draft.buildingColor
-        );
+      setBuildingColor(
+        draft.buildingColor || ""
+      );
 
-      if (draft.apartmentSide)
-        setApartmentSide(
-          draft.apartmentSide
-        );
+      setApartmentSide(
+        draft.apartmentSide || ""
+      );
 
-      if (draft.floorNote)
-        setFloorNote(
-          draft.floorNote
-        );
+      setFloorNote(
+        draft.floorNote || ""
+      );
 
-      if (draft.arrivalNote)
-        setArrivalNote(
-          draft.arrivalNote
-        );
+      setArrivalNote(
+        draft.arrivalNote || ""
+      );
 
-      if (draft.phoneNumber)
-        setPhoneNumber(
-          draft.phoneNumber
-        );
+      setPhoneNumber(
+        draft.phoneNumber || ""
+      );
 
-      if (draft.placeName)
-        setPlaceName(
-          draft.placeName
-        );
+      setPlaceName(
+        draft.placeName || ""
+      );
 
-      if (draft.position)
+      setGeneratedGuide(
+        draft.generatedGuide || ""
+      );
+
+      if (draft.position) {
         setPosition(draft.position);
+      }
 
-      if (draft.shareUrl)
+      if (draft.shareUrl) {
         setShareUrl(
           draft.shareUrl
         );
+      }
 
-      if (draft.dashboardUrl)
+      if (draft.dashboardUrl) {
         setDashboardUrl(
           draft.dashboardUrl
         );
-
-      if (draft.generatedGuide)
-        setGeneratedGuide(
-          draft.generatedGuide
-        );
+      }
     } catch (err) {
       console.log(err);
     }
@@ -224,6 +227,19 @@ export default function CreatePage() {
     localStorage.removeItem(
       STORAGE_KEY
     );
+
+    setLandmark("");
+    setBuildingColor("");
+    setApartmentSide("");
+    setFloorNote("");
+    setArrivalNote("");
+    setPhoneNumber("");
+    setPlaceName("");
+    setGeneratedGuide("");
+    setShareUrl("");
+    setDashboardUrl("");
+
+    alert("Draft cleared.");
   };
 
   const fetchLocation = async () => {
@@ -342,6 +358,10 @@ export default function CreatePage() {
 
     speech.rate = 0.92;
 
+    speech.pitch = 1;
+
+    window.speechSynthesis.cancel();
+
     window.speechSynthesis.speak(
       speech
     );
@@ -362,7 +382,7 @@ export default function CreatePage() {
       const dashboardId =
         Math.random()
           .toString(36)
-          .substring(2, 10);
+          .substring(2, 12);
 
       const { error } =
         await supabase
@@ -425,6 +445,11 @@ export default function CreatePage() {
       setLoading(false);
 
       saveDraft();
+
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth",
+      });
     } catch (err) {
       console.log(err);
 
@@ -450,11 +475,13 @@ export default function CreatePage() {
 
   const shareWhatsApp = () => {
     const text = encodeURIComponent(
-      `📍 LocateMe Location\n\n${shareUrl}`
+      `📍 *LocateMe Smart Location*\n\n${placeName || "Destination"}\n\n${shareUrl}\n\n🧭 Smart Guide:\n${generatedGuide}`
     );
 
-    window.location.href =
-      `https://wa.me/?text=${text}`;
+    window.open(
+      `https://wa.me/?text=${text}`,
+      "_blank"
+    );
   };
 
   if (!mounted) return null;
@@ -468,9 +495,11 @@ export default function CreatePage() {
 
           <div className="flex items-center gap-2 text-green-400 mb-4">
             <Sparkles size={18} />
+
             <span className="text-sm font-semibold">
               Elite Navigation System
             </span>
+
           </div>
 
           <h1 className="text-5xl font-black tracking-tight">
@@ -478,8 +507,8 @@ export default function CreatePage() {
           </h1>
 
           <p className="text-zinc-400 mt-3 text-lg leading-7">
-            Smart location sharing for
-            Africa and beyond.
+            Smart African location sharing
+            with live arrival tracking.
           </p>
 
         </div>
@@ -496,16 +525,28 @@ export default function CreatePage() {
 
         </div>
 
-        <button
-          onClick={fetchLocation}
-          className="w-full mt-5 bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 hover:scale-[1.01] transition"
-        >
-          <Navigation size={18} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
 
-          {loading
-            ? "Fetching location..."
-            : "Use My Live Location"}
-        </button>
+          <button
+            onClick={fetchLocation}
+            className="bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 hover:scale-[1.01] transition"
+          >
+            <LocateFixed size={18} />
+
+            {loading
+              ? "Fetching..."
+              : "Use Live Location"}
+          </button>
+
+          <button
+            onClick={clearDraft}
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+          >
+            <Trash2 size={18} />
+            Clear Draft
+          </button>
+
+        </div>
 
         <div className="mt-6 space-y-4">
 
@@ -515,7 +556,7 @@ export default function CreatePage() {
           >
             <input
               type="text"
-              placeholder="Home, Office, Shop..."
+              placeholder="Home, Office, Hostel..."
               value={placeName}
               onChange={(e) =>
                 setPlaceName(
@@ -631,7 +672,8 @@ export default function CreatePage() {
 
         <button
           onClick={createLink}
-          className="w-full mt-6 bg-green-500 hover:bg-green-400 transition rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2"
+          disabled={loading}
+          className="w-full mt-6 bg-green-500 hover:bg-green-400 transition rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <MapPin size={20} />
 
@@ -645,16 +687,16 @@ export default function CreatePage() {
 
             <div className="flex items-center gap-2 text-green-400 font-semibold">
               <CheckCircle2 size={18} />
-              Link Generated Successfully
+              Location Generated
             </div>
 
-            <div>
+            <div className="bg-zinc-800 rounded-2xl p-4">
 
               <p className="text-sm text-zinc-400 mb-2">
                 Share Link
               </p>
 
-              <div className="bg-zinc-800 rounded-xl p-4 text-sm break-all">
+              <div className="break-all text-sm">
                 {shareUrl}
               </div>
 
@@ -662,21 +704,25 @@ export default function CreatePage() {
 
             <div className="bg-zinc-800 rounded-2xl p-4">
 
-              <p className="text-sm text-zinc-400 mb-2">
-                Smart Guide
-              </p>
+              <div className="flex items-center gap-2 mb-3 text-green-400">
 
-              <p className="text-sm leading-7">
+                <ShieldCheck size={16} />
+
+                Smart Guide
+
+              </div>
+
+              <p className="leading-7 text-sm">
                 {generatedGuide}
               </p>
 
             </div>
 
-            <div className="flex gap-3">
+            <div className="grid grid-cols-2 gap-3">
 
               <button
                 onClick={copyLink}
-                className="flex-1 bg-zinc-800 rounded-xl py-4 flex items-center justify-center gap-2"
+                className="bg-zinc-800 rounded-2xl py-4 flex items-center justify-center gap-2 font-semibold"
               >
                 <Copy size={16} />
 
@@ -687,7 +733,7 @@ export default function CreatePage() {
 
               <button
                 onClick={shareWhatsApp}
-                className="flex-1 bg-green-600 rounded-xl py-4 flex items-center justify-center gap-2"
+                className="bg-green-600 rounded-2xl py-4 flex items-center justify-center gap-2 font-semibold"
               >
                 <Share2 size={16} />
                 WhatsApp
@@ -703,14 +749,7 @@ export default function CreatePage() {
               Open Sender Dashboard
             </Link>
 
-            <button
-              onClick={clearDraft}
-              className="w-full bg-zinc-800 rounded-2xl py-4 font-semibold"
-            >
-              Clear Draft
-            </button>
-
-            <div className="bg-white rounded-2xl p-5 flex justify-center">
+            <div className="bg-white rounded-3xl p-5 flex justify-center">
 
               <QRCodeSVG
                 value={shareUrl}
@@ -721,10 +760,10 @@ export default function CreatePage() {
 
             <button
               onClick={speakGuide}
-              className="w-full bg-blue-600 rounded-xl py-4 flex items-center justify-center gap-2 font-semibold"
+              className="w-full bg-blue-600 rounded-2xl py-4 flex items-center justify-center gap-2 font-semibold"
             >
               <Mic size={18} />
-              Voice Guidance
+              Play Voice Guidance
             </button>
 
           </div>

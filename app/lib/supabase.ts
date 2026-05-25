@@ -6,13 +6,28 @@ const supabaseUrl =
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
+if (
+  !supabaseUrl ||
+  !supabaseAnonKey
+) {
+  console.error(
     "Missing Supabase environment variables"
   );
 }
 
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-);
+export const supabase =
+  createClient(
+    supabaseUrl || "",
+    supabaseAnonKey || "",
+    {
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+
+      auth: {
+        persistSession: false,
+      },
+    }
+  );

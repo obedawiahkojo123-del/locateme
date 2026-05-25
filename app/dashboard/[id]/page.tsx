@@ -38,6 +38,8 @@ interface LocationData {
   latitude: number;
 
   longitude: number;
+
+  dashboard_id?: string;
 }
 
 export default function DashboardPage() {
@@ -69,6 +71,7 @@ export default function DashboardPage() {
     fetchLocations();
 
     if (
+      typeof window !== "undefined" &&
       "Notification" in window &&
       Notification.permission !==
         "granted"
@@ -89,9 +92,16 @@ export default function DashboardPage() {
           schema: "public",
           table: "locations",
         },
-        (payload) => {
+        (payload: any) => {
           const updated =
             payload.new as LocationData;
+
+          if (
+            updated.dashboard_id !==
+            dashboardId
+          ) {
+            return;
+          }
 
           setRecentLocations(
             (prev) =>
@@ -106,7 +116,12 @@ export default function DashboardPage() {
               )
           );
 
-          if (updated.arrived) {
+          if (
+            updated.arrived ===
+              true &&
+            payload.old.arrived ===
+              false
+          ) {
             const place =
               updated.place_name ||
               updated.landmark ||
@@ -132,6 +147,8 @@ export default function DashboardPage() {
             }
 
             if (
+              typeof window !==
+                "undefined" &&
               "Notification" in
                 window &&
               Notification.permission ===
@@ -175,11 +192,10 @@ export default function DashboardPage() {
         channel
       );
     };
-  }, []);
+  }, [dashboardId]);
 
   const fetchLocations =
     async () => {
-
       const { data, error } =
         await supabase
           .from("locations")
@@ -191,7 +207,8 @@ export default function DashboardPage() {
             created_at,
             arrived,
             latitude,
-            longitude
+            longitude,
+            dashboard_id
           `
           )
           .eq(
@@ -351,13 +368,13 @@ export default function DashboardPage() {
                     );
 
                   const uberLink =
-                    `uber://?action=setPickup&dropoff[latitude]=${loc.latitude}&dropoff[longitude]=${loc.longitude}&dropoff[nickname]=${encodedName}`;
+                    `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${loc.latitude}&dropoff[longitude]=${loc.longitude}&dropoff[nickname]=${encodedName}`;
 
                   const boltLink =
-                    `https://bolt.eu/launch?lat=${loc.latitude}&lng=${loc.longitude}`;
+                    `https://bolt.eu/launch?client=ride&destination_lat=${loc.latitude}&destination_lng=${loc.longitude}`;
 
                   const googleMapsLink =
-                    `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`;
+                    `https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`;
 
                   return (
 
@@ -433,19 +450,19 @@ export default function DashboardPage() {
 
                           <a
                             href={uberLink}
+                            target="_blank"
                             className="bg-black border border-zinc-700 px-5 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2"
                           >
                             <Car size={16} />
-
                             Uber
                           </a>
 
                           <a
                             href={boltLink}
+                            target="_blank"
                             className="bg-lime-500 text-black px-5 py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
                           >
                             <Navigation size={16} />
-
                             Bolt
                           </a>
 
@@ -455,7 +472,6 @@ export default function DashboardPage() {
                             className="bg-zinc-800 px-5 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2"
                           >
                             <MapPin size={16} />
-
                             Google Maps
                           </a>
 

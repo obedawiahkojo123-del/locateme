@@ -21,6 +21,7 @@ import {
   BellRing,
   ArrowRight,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -79,11 +80,13 @@ export default function LocationPage() {
     useState(false);
 
   useEffect(() => {
-    setIsMobile(
-      /iPhone|iPad|iPod|Android/i.test(
-        navigator.userAgent
-      )
-    );
+    if (typeof window !== "undefined") {
+      setIsMobile(
+        /iPhone|iPad|iPod|Android/i.test(
+          navigator.userAgent
+        )
+      );
+    }
 
     requestNotificationPermission();
 
@@ -128,7 +131,7 @@ export default function LocationPage() {
   const subscribeToArrival = (
     locationId: string
   ) => {
-    supabase
+    const channel = supabase
       .channel(`arrival-${locationId}`)
       .on(
         "postgres_changes",
@@ -141,7 +144,9 @@ export default function LocationPage() {
         (payload: any) => {
           if (
             payload.new.arrived ===
-            true
+              true &&
+            payload.old.arrived ===
+              false
           ) {
             setData((prev: any) => ({
               ...prev,
@@ -152,9 +157,23 @@ export default function LocationPage() {
               "Receiver has arrived at destination"
             );
 
+            try {
+              const audio =
+                new Audio(
+                  "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+                );
+
+              audio.volume = 1;
+
+              audio.play();
+            } catch (err) {
+              console.log(err);
+            }
+
             if (
+              "Notification" in window &&
               Notification.permission ===
-              "granted"
+                "granted"
             ) {
               new Notification(
                 "LocateMe Arrival",
@@ -168,11 +187,23 @@ export default function LocationPage() {
         }
       )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(
+        channel
+      );
+    };
   };
 
   const getDistance = (
     destination: LocationData
   ) => {
+    if (
+      typeof navigator ===
+      "undefined"
+    )
+      return;
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat1 =
@@ -262,6 +293,21 @@ export default function LocationPage() {
           speak(
             "Arrival status updated"
           );
+
+          try {
+            const audio =
+              new Audio(
+                "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+              );
+
+            audio.play();
+          } catch (err) {
+            console.log(err);
+          }
+
+          alert(
+            "Sender notified successfully."
+          );
         }
 
         setArrivalLoading(false);
@@ -275,13 +321,17 @@ export default function LocationPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
+
         <div className="text-center">
+
           <div className="w-14 h-14 border-4 border-zinc-700 border-t-white rounded-full animate-spin mx-auto mb-5" />
 
           <p className="text-zinc-400">
             Loading destination...
           </p>
+
         </div>
+
       </main>
     );
   }
@@ -300,7 +350,7 @@ export default function LocationPage() {
     "LocateMe Destination";
 
   const googleMapsLink =
-    `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}`;
+    `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}&travelmode=driving`;
 
   const appleMapsLink =
     `http://maps.apple.com/?daddr=${data.latitude},${data.longitude}`;
@@ -315,20 +365,15 @@ export default function LocationPage() {
       destinationLabel
     )}`;
 
-  const boltLink =
-    `https://bolt.eu/launch?client=ride&destination_lat=${data.latitude}&destination_lng=${data.longitude}`;
-
   const openUber = () => {
     if (isMobile) {
       window.location.href =
         uberDeepLink;
 
       setTimeout(() => {
-        window.open(
-          uberFallbackLink,
-          "_blank"
-        );
-      }, 1200);
+        window.location.href =
+          uberFallbackLink;
+      }, 1400);
     } else {
       window.open(
         uberFallbackLink,
@@ -339,20 +384,21 @@ export default function LocationPage() {
 
   const openBolt = () => {
     window.open(
-      boltLink,
+      googleMapsLink,
       "_blank"
     );
   };
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-6">
+
       <div className="max-w-2xl mx-auto">
 
         <div className="mb-7">
 
           <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm mb-5">
 
-            <MapPin size={14} />
+            <Sparkles size={14} />
 
             Smart Destination Link
 
@@ -437,7 +483,7 @@ export default function LocationPage() {
 
           <button
             onClick={openUber}
-            className="bg-black border border-zinc-700 rounded-2xl py-5 font-bold flex items-center justify-center gap-2"
+            className="bg-black border border-zinc-700 rounded-2xl py-5 font-bold flex items-center justify-center gap-2 hover:border-zinc-500 transition"
           >
             <Car size={20} />
             Uber Ride
@@ -445,7 +491,7 @@ export default function LocationPage() {
 
           <button
             onClick={openBolt}
-            className="bg-green-500 text-black rounded-2xl py-5 font-bold flex items-center justify-center gap-2"
+            className="bg-green-500 text-black rounded-2xl py-5 font-bold flex items-center justify-center gap-2 hover:bg-green-400 transition"
           >
             <Car size={20} />
             Bolt Ride
@@ -510,7 +556,7 @@ export default function LocationPage() {
             onClick={() =>
               speak(data.smart_guide)
             }
-            className="w-full bg-blue-600 rounded-2xl py-5 font-bold flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 rounded-2xl py-5 font-bold flex items-center justify-center gap-2 hover:bg-blue-500 transition"
           >
             <Volume2 size={18} />
             Play Voice Guide
@@ -519,7 +565,7 @@ export default function LocationPage() {
           {data.phone_number && (
             <a
               href={`tel:${data.phone_number}`}
-              className="w-full bg-zinc-800 rounded-2xl py-5 font-bold flex items-center justify-center gap-2"
+              className="w-full bg-zinc-800 rounded-2xl py-5 font-bold flex items-center justify-center gap-2 hover:bg-zinc-700 transition"
             >
               <Phone size={18} />
               Call Sender
@@ -532,7 +578,7 @@ export default function LocationPage() {
               data.arrived ||
               arrivalLoading
             }
-            className="w-full bg-purple-600 rounded-2xl py-5 font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-purple-600 rounded-2xl py-5 font-bold flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-purple-500 transition"
           >
             <CheckCircle2 size={18} />
 
@@ -546,16 +592,20 @@ export default function LocationPage() {
           <a
             href={googleMapsLink}
             target="_blank"
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-5 font-bold flex items-center justify-center gap-2"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-5 font-bold flex items-center justify-center gap-2 hover:border-zinc-600 transition"
           >
             <ExternalLink size={18} />
+
             Open Full Navigation
+
             <ArrowRight size={18} />
+
           </a>
 
         </div>
 
       </div>
+
     </main>
   );
 }
@@ -571,6 +621,7 @@ function InfoCard({
       {icon}
 
       <div>
+
         <p className="text-sm text-zinc-400">
           {title}
         </p>
@@ -578,6 +629,7 @@ function InfoCard({
         <p className="font-semibold mt-1 leading-7">
           {value}
         </p>
+
       </div>
 
     </div>

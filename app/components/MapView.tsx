@@ -4,9 +4,13 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Popup,
+  useMap,
 } from "react-leaflet";
 
 import L from "leaflet";
+
+import { useEffect } from "react";
 
 import "leaflet/dist/leaflet.css";
 
@@ -18,6 +22,10 @@ interface Props {
   ) => void;
 
   draggable?: boolean;
+
+  zoom?: number;
+
+  popupText?: string;
 }
 
 const markerIcon = new L.Icon({
@@ -32,20 +40,40 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
+function RecenterMap({
+  position,
+}: {
+  position: [number, number];
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(position);
+  }, [position, map]);
+
+  return null;
+}
+
 export default function MapView({
   position,
   setPosition,
   draggable = false,
+  zoom = 17,
+  popupText = "LocateMe Destination",
 }: Props) {
   return (
     <div className="h-[45vh] w-full">
 
       <MapContainer
         center={position}
-        zoom={17}
+        zoom={zoom}
         scrollWheelZoom={true}
-        className="h-full w-full"
+        className="h-full w-full z-0"
       >
+
+        <RecenterMap
+          position={position}
+        />
 
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
@@ -72,7 +100,13 @@ export default function MapView({
               ]);
             },
           }}
-        />
+        >
+
+          <Popup>
+            {popupText}
+          </Popup>
+
+        </Marker>
 
       </MapContainer>
 
