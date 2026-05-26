@@ -179,7 +179,7 @@ export default function LocationPage() {
                 "LocateMe Arrival",
                 {
                   body:
-                    "Your visitor has arrived.",
+                    "Arrival confirmed successfully.",
                 }
               );
             }
@@ -300,14 +300,26 @@ export default function LocationPage() {
                 "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
               );
 
+            audio.volume = 1;
+
             audio.play();
           } catch (err) {
             console.log(err);
           }
 
-          alert(
-            "Sender notified successfully."
-          );
+          if (
+            "Notification" in window &&
+            Notification.permission ===
+              "granted"
+          ) {
+            new Notification(
+              "LocateMe",
+              {
+                body:
+                  "Sender notified successfully.",
+              }
+            );
+          }
         }
 
         setArrivalLoading(false);
@@ -365,6 +377,12 @@ export default function LocationPage() {
       destinationLabel
     )}`;
 
+  const boltDeepLink =
+    `bolt://navigate?lat=${data.latitude}&lng=${data.longitude}`;
+
+  const boltWebFallback =
+    `https://bolt.eu/en-gh/`;
+
   const openUber = () => {
     if (isMobile) {
       window.location.href =
@@ -373,7 +391,7 @@ export default function LocationPage() {
       setTimeout(() => {
         window.location.href =
           uberFallbackLink;
-      }, 1400);
+      }, 1500);
     } else {
       window.open(
         uberFallbackLink,
@@ -383,10 +401,22 @@ export default function LocationPage() {
   };
 
   const openBolt = () => {
-    window.open(
-      googleMapsLink,
-      "_blank"
-    );
+    if (isMobile) {
+      window.location.href =
+        boltDeepLink;
+
+      setTimeout(() => {
+        window.open(
+          googleMapsLink,
+          "_blank"
+        );
+      }, 1500);
+    } else {
+      window.open(
+        boltWebFallback,
+        "_blank"
+      );
+    }
   };
 
   return (
@@ -416,6 +446,7 @@ export default function LocationPage() {
         </div>
 
         <div className="rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl">
+
           <MapView
             position={[
               data.latitude,
@@ -423,6 +454,7 @@ export default function LocationPage() {
             ]}
             draggable={false}
           />
+
         </div>
 
         {distanceAway && (
