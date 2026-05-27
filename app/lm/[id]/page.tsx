@@ -378,10 +378,10 @@ export default function LocationPage() {
     )}`;
 
   const boltDeepLink =
-    `bolt://navigate?lat=${data.latitude}&lng=${data.longitude}`;
+    `bolt://ride?destination_lat=${data.latitude}&destination_lng=${data.longitude}`;
 
   const boltWebFallback =
-    `https://bolt.eu/en-gh/`;
+    `https://bolt.eu/en-gh/ride/?destination_lat=${data.latitude}&destination_lng=${data.longitude}`;
 
   const openUber = () => {
     if (isMobile) {
@@ -402,20 +402,40 @@ export default function LocationPage() {
 
   const openBolt = () => {
     if (isMobile) {
+
+      const start = Date.now();
+
       window.location.href =
         boltDeepLink;
 
       setTimeout(() => {
-        window.open(
-          googleMapsLink,
-          "_blank"
-        );
-      }, 1500);
+
+        const elapsed =
+          Date.now() - start;
+
+        if (elapsed < 2200) {
+
+          window.location.href =
+            boltWebFallback;
+
+          setTimeout(() => {
+            window.open(
+              googleMapsLink,
+              "_blank"
+            );
+          }, 1800);
+
+        }
+
+      }, 1600);
+
     } else {
+
       window.open(
         boltWebFallback,
         "_blank"
       );
+
     }
   };
 

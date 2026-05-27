@@ -20,14 +20,14 @@ import {
   CheckCircle2,
   LayoutDashboard,
   Sparkles,
-  LocateFixed,
-  ShieldCheck,
-  Trash2,
+  BellRing,
 } from "lucide-react";
 
 import { QRCodeSVG } from "qrcode.react";
 
 import { supabase } from "../lib/supabase";
+
+import { speak } from "../lib/speak";
 
 import "leaflet/dist/leaflet.css";
 
@@ -93,6 +93,12 @@ export default function CreatePage() {
     setGeneratedGuide,
   ] = useState("");
 
+  const [showArrivalPopup, setShowArrivalPopup] =
+    useState(false);
+
+  const [arrivalPlace, setArrivalPlace] =
+    useState("");
+
   const leafletIcon = useMemo(() => {
     if (typeof window === "undefined")
       return null;
@@ -118,6 +124,14 @@ export default function CreatePage() {
     fetchLocation();
 
     restoreDraft();
+
+    if (
+      "Notification" in window &&
+      Notification.permission !==
+        "granted"
+    ) {
+      Notification.requestPermission();
+    }
   }, []);
 
   useEffect(() => {
@@ -134,10 +148,89 @@ export default function CreatePage() {
     placeName,
     position,
     mounted,
-    generatedGuide,
-    shareUrl,
-    dashboardUrl,
   ]);
+
+  useEffect(() => {
+    if (!shareUrl) return;
+
+    const locationId =
+      shareUrl.split("/lm/")[1];
+
+    if (!locationId) return;
+
+    const channel = supabase
+      .channel(`creator-${locationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "locations",
+          filter: `id=eq.${locationId}`,
+        },
+        (payload: any) => {
+          if (
+            payload.new.arrived ===
+              true &&
+            payload.old.arrived ===
+              false
+          ) {
+            const place =
+              payload.new.place_name ||
+              payload.new.landmark ||
+              "Destination";
+
+            setArrivalPlace(place);
+
+            setShowArrivalPopup(true);
+
+            speak(
+              `Visitor arrived at ${place}`
+            );
+
+            try {
+              const audio =
+                new Audio(
+                  "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+                );
+
+              audio.volume = 1;
+
+              audio.play();
+            } catch (err) {
+              console.log(err);
+            }
+
+            if (
+              "Notification" in
+                window &&
+              Notification.permission ===
+                "granted"
+            ) {
+              new Notification(
+                "LocateMe Arrival",
+                {
+                  body: `Visitor arrived at ${place}`,
+                }
+              );
+            }
+
+            setTimeout(() => {
+              setShowArrivalPopup(
+                false
+              );
+            }, 6500);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(
+        channel
+      );
+    };
+  }, [shareUrl]);
 
   const saveDraft = () => {
     const draft = {
@@ -161,63 +254,66 @@ export default function CreatePage() {
   };
 
   const restoreDraft = () => {
+    const raw =
+      localStorage.getItem(
+        STORAGE_KEY
+      );
+
+    if (!raw) return;
+
     try {
-      const raw =
-        localStorage.getItem(
-          STORAGE_KEY
-        );
-
-      if (!raw) return;
-
       const draft = JSON.parse(raw);
 
-      setLandmark(
-        draft.landmark || ""
-      );
+      if (draft.landmark)
+        setLandmark(draft.landmark);
 
-      setBuildingColor(
-        draft.buildingColor || ""
-      );
+      if (draft.buildingColor)
+        setBuildingColor(
+          draft.buildingColor
+        );
 
-      setApartmentSide(
-        draft.apartmentSide || ""
-      );
+      if (draft.apartmentSide)
+        setApartmentSide(
+          draft.apartmentSide
+        );
 
-      setFloorNote(
-        draft.floorNote || ""
-      );
+      if (draft.floorNote)
+        setFloorNote(
+          draft.floorNote
+        );
 
-      setArrivalNote(
-        draft.arrivalNote || ""
-      );
+      if (draft.arrivalNote)
+        setArrivalNote(
+          draft.arrivalNote
+        );
 
-      setPhoneNumber(
-        draft.phoneNumber || ""
-      );
+      if (draft.phoneNumber)
+        setPhoneNumber(
+          draft.phoneNumber
+        );
 
-      setPlaceName(
-        draft.placeName || ""
-      );
+      if (draft.placeName)
+        setPlaceName(
+          draft.placeName
+        );
 
-      setGeneratedGuide(
-        draft.generatedGuide || ""
-      );
-
-      if (draft.position) {
+      if (draft.position)
         setPosition(draft.position);
-      }
 
-      if (draft.shareUrl) {
+      if (draft.shareUrl)
         setShareUrl(
           draft.shareUrl
         );
-      }
 
-      if (draft.dashboardUrl) {
+      if (draft.dashboardUrl)
         setDashboardUrl(
           draft.dashboardUrl
         );
-      }
+
+      if (draft.generatedGuide)
+        setGeneratedGuide(
+          draft.generatedGuide
+        );
     } catch (err) {
       console.log(err);
     }
@@ -227,19 +323,6 @@ export default function CreatePage() {
     localStorage.removeItem(
       STORAGE_KEY
     );
-
-    setLandmark("");
-    setBuildingColor("");
-    setApartmentSide("");
-    setFloorNote("");
-    setArrivalNote("");
-    setPhoneNumber("");
-    setPlaceName("");
-    setGeneratedGuide("");
-    setShareUrl("");
-    setDashboardUrl("");
-
-    alert("Draft cleared.");
   };
 
   const fetchLocation = async () => {
@@ -351,20 +434,7 @@ export default function CreatePage() {
 
     if (!text) return;
 
-    const speech =
-      new SpeechSynthesisUtterance(
-        text
-      );
-
-    speech.rate = 0.92;
-
-    speech.pitch = 1;
-
-    window.speechSynthesis.cancel();
-
-    window.speechSynthesis.speak(
-      speech
-    );
+    speak(text);
   };
 
   const createLink = async () => {
@@ -382,7 +452,7 @@ export default function CreatePage() {
       const dashboardId =
         Math.random()
           .toString(36)
-          .substring(2, 12);
+          .substring(2, 10);
 
       const { error } =
         await supabase
@@ -445,11 +515,6 @@ export default function CreatePage() {
       setLoading(false);
 
       saveDraft();
-
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
     } catch (err) {
       console.log(err);
 
@@ -475,303 +540,387 @@ export default function CreatePage() {
 
   const shareWhatsApp = () => {
     const text = encodeURIComponent(
-      `📍 *LocateMe Smart Location*\n\n${placeName || "Destination"}\n\n${shareUrl}\n\n🧭 Smart Guide:\n${generatedGuide}`
+      `📍 LocateMe Location\n\n${shareUrl}`
     );
 
-    window.open(
-      `https://wa.me/?text=${text}`,
-      "_blank"
-    );
+    window.location.href =
+      `https://wa.me/?text=${text}`;
   };
 
   if (!mounted) return null;
 
   return (
-    <main className="min-h-screen bg-black text-white px-4 py-6">
+    <>
+      {showArrivalPopup && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6">
 
-      <div className="max-w-2xl mx-auto">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-pulse" />
 
-        <div className="mb-8">
+          <div className="relative overflow-hidden bg-zinc-900 border border-green-500 rounded-[2rem] p-8 w-full max-w-md shadow-[0_0_100px_rgba(34,197,94,0.45)] animate-bounce">
 
-          <div className="flex items-center gap-2 text-green-400 mb-4">
-            <Sparkles size={18} />
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-300" />
 
-            <span className="text-sm font-semibold">
-              Elite Navigation System
-            </span>
+            <div className="flex items-center justify-center mb-6">
+
+              <div className="relative">
+
+                <div className="absolute inset-0 rounded-full bg-green-500 blur-2xl opacity-60 animate-ping" />
+
+                <div className="relative w-24 h-24 rounded-full bg-green-500 flex items-center justify-center">
+
+                  <CheckCircle2
+                    size={50}
+                    className="text-black"
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="text-center">
+
+              <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-lg mb-3">
+
+                <BellRing size={20} />
+
+                LIVE ARRIVAL
+
+                <Sparkles size={18} />
+
+              </div>
+
+              <h2 className="text-3xl font-black mb-4">
+                Visitor Arrived
+              </h2>
+
+              <p className="text-zinc-300 leading-7 text-lg">
+                Your visitor has successfully
+                arrived at
+                <span className="block text-white font-bold text-2xl mt-2">
+                  {arrivalPlace}
+                </span>
+              </p>
+
+            </div>
 
           </div>
 
-          <h1 className="text-5xl font-black tracking-tight">
-            LocateMe
-          </h1>
-
-          <p className="text-zinc-400 mt-3 text-lg leading-7">
-            Smart African location sharing
-            with live arrival tracking.
-          </p>
-
         </div>
+      )}
 
-        <div className="rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl">
+      <main className="min-h-screen bg-black text-white px-4 py-6">
 
-          {leafletIcon && (
-            <MapView
-              position={position}
-              setPosition={setPosition}
-              draggable={true}
-            />
+        <div className="max-w-2xl mx-auto">
+
+          <div className="mb-8">
+
+            <div className="flex items-center gap-2 text-green-400 mb-4">
+
+              <Sparkles size={18} />
+
+              <span className="text-sm font-semibold">
+                Elite Navigation System
+              </span>
+
+            </div>
+
+            <h1 className="text-5xl font-black tracking-tight">
+              LocateMe
+            </h1>
+
+            <p className="text-zinc-400 mt-3 text-lg leading-7">
+              Smart location sharing for
+              Africa and beyond.
+            </p>
+
+          </div>
+
+          <div className="rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl">
+
+            {leafletIcon && (
+              <MapView
+                position={position}
+                setPosition={setPosition}
+                draggable={true}
+              />
+            )}
+
+          </div>
+
+          <button
+            onClick={fetchLocation}
+            className="w-full mt-5 bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 hover:scale-[1.01] transition"
+          >
+
+            <Navigation size={18} />
+
+            {loading
+              ? "Fetching location..."
+              : "Use My Live Location"}
+
+          </button>
+
+          <div className="mt-6 space-y-4">
+
+            <InputCard
+              icon={<MapPin size={16} />}
+              title="Place Name"
+            >
+
+              <input
+                type="text"
+                placeholder="Home, Office, Shop..."
+                value={placeName}
+                onChange={(e) =>
+                  setPlaceName(
+                    e.target.value
+                  )
+                }
+                className="input"
+              />
+
+            </InputCard>
+
+            <InputCard
+              icon={<MapPin size={16} />}
+              title="Landmark"
+            >
+
+              <input
+                type="text"
+                placeholder="Near Shell station"
+                value={landmark}
+                onChange={(e) =>
+                  setLandmark(
+                    e.target.value
+                  )
+                }
+                className="input"
+              />
+
+            </InputCard>
+
+            <InputCard
+              icon={<Building2 size={16} />}
+              title="Building Color"
+            >
+
+              <input
+                type="text"
+                placeholder="Blue building"
+                value={buildingColor}
+                onChange={(e) =>
+                  setBuildingColor(
+                    e.target.value
+                  )
+                }
+                className="input"
+              />
+
+            </InputCard>
+
+            <InputCard
+              icon={<Home size={16} />}
+              title="Apartment / Gate Side"
+            >
+
+              <input
+                type="text"
+                placeholder="Second gate on left"
+                value={apartmentSide}
+                onChange={(e) =>
+                  setApartmentSide(
+                    e.target.value
+                  )
+                }
+                className="input"
+              />
+
+            </InputCard>
+
+            <InputCard
+              icon={<Layers3 size={16} />}
+              title="Floor / Room"
+            >
+
+              <input
+                type="text"
+                placeholder="Top floor room 4"
+                value={floorNote}
+                onChange={(e) =>
+                  setFloorNote(
+                    e.target.value
+                  )
+                }
+                className="input"
+              />
+
+            </InputCard>
+
+            <InputCard
+              icon={<StickyNote size={16} />}
+              title="Arrival Note"
+            >
+
+              <textarea
+                placeholder="Call when you arrive"
+                value={arrivalNote}
+                onChange={(e) =>
+                  setArrivalNote(
+                    e.target.value
+                  )
+                }
+                className="input h-28 resize-none"
+              />
+
+            </InputCard>
+
+            <InputCard
+              icon={<Phone size={16} />}
+              title="Phone Number"
+            >
+
+              <input
+                type="text"
+                placeholder="+233..."
+                value={phoneNumber}
+                onChange={(e) =>
+                  setPhoneNumber(
+                    e.target.value
+                  )
+                }
+                className="input"
+              />
+
+            </InputCard>
+
+          </div>
+
+          <button
+            onClick={createLink}
+            className="w-full mt-6 bg-green-500 hover:bg-green-400 transition rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2"
+          >
+
+            <MapPin size={20} />
+
+            {loading
+              ? "Generating..."
+              : "Generate LocateMe Link"}
+
+          </button>
+
+          {shareUrl && (
+            <div className="mt-6 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5">
+
+              <div className="flex items-center gap-2 text-green-400 font-semibold">
+
+                <CheckCircle2 size={18} />
+
+                Link Generated Successfully
+
+              </div>
+
+              <div>
+
+                <p className="text-sm text-zinc-400 mb-2">
+                  Share Link
+                </p>
+
+                <div className="bg-zinc-800 rounded-xl p-4 text-sm break-all">
+
+                  {shareUrl}
+
+                </div>
+
+              </div>
+
+              <div className="bg-zinc-800 rounded-2xl p-4">
+
+                <p className="text-sm text-zinc-400 mb-2">
+                  Smart Guide
+                </p>
+
+                <p className="text-sm leading-7">
+                  {generatedGuide}
+                </p>
+
+              </div>
+
+              <div className="flex gap-3">
+
+                <button
+                  onClick={copyLink}
+                  className="flex-1 bg-zinc-800 rounded-xl py-4 flex items-center justify-center gap-2"
+                >
+
+                  <Copy size={16} />
+
+                  {copied
+                    ? "Copied"
+                    : "Copy"}
+
+                </button>
+
+                <button
+                  onClick={shareWhatsApp}
+                  className="flex-1 bg-green-600 rounded-xl py-4 flex items-center justify-center gap-2"
+                >
+
+                  <Share2 size={16} />
+
+                  WhatsApp
+
+                </button>
+
+              </div>
+
+              <Link
+                href={dashboardUrl}
+                className="w-full bg-purple-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
+              >
+
+                <LayoutDashboard size={18} />
+
+                Open Sender Dashboard
+
+              </Link>
+
+              <button
+                onClick={clearDraft}
+                className="w-full bg-zinc-800 rounded-2xl py-4 font-semibold"
+              >
+                Clear Draft
+              </button>
+
+              <div className="bg-white rounded-2xl p-5 flex justify-center">
+
+                <QRCodeSVG
+                  value={shareUrl}
+                  size={190}
+                />
+
+              </div>
+
+              <button
+                onClick={speakGuide}
+                className="w-full bg-blue-600 rounded-xl py-4 flex items-center justify-center gap-2 font-semibold"
+              >
+
+                <Mic size={18} />
+
+                Voice Guidance
+
+              </button>
+
+            </div>
           )}
 
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
-
-          <button
-            onClick={fetchLocation}
-            className="bg-white text-black rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 hover:scale-[1.01] transition"
-          >
-            <LocateFixed size={18} />
-
-            {loading
-              ? "Fetching..."
-              : "Use Live Location"}
-          </button>
-
-          <button
-            onClick={clearDraft}
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
-          >
-            <Trash2 size={18} />
-            Clear Draft
-          </button>
-
-        </div>
-
-        <div className="mt-6 space-y-4">
-
-          <InputCard
-            icon={<MapPin size={16} />}
-            title="Place Name"
-          >
-            <input
-              type="text"
-              placeholder="Home, Office, Hostel..."
-              value={placeName}
-              onChange={(e) =>
-                setPlaceName(
-                  e.target.value
-                )
-              }
-              className="input"
-            />
-          </InputCard>
-
-          <InputCard
-            icon={<MapPin size={16} />}
-            title="Landmark"
-          >
-            <input
-              type="text"
-              placeholder="Near Shell station"
-              value={landmark}
-              onChange={(e) =>
-                setLandmark(
-                  e.target.value
-                )
-              }
-              className="input"
-            />
-          </InputCard>
-
-          <InputCard
-            icon={<Building2 size={16} />}
-            title="Building Color"
-          >
-            <input
-              type="text"
-              placeholder="Blue building"
-              value={buildingColor}
-              onChange={(e) =>
-                setBuildingColor(
-                  e.target.value
-                )
-              }
-              className="input"
-            />
-          </InputCard>
-
-          <InputCard
-            icon={<Home size={16} />}
-            title="Apartment / Gate Side"
-          >
-            <input
-              type="text"
-              placeholder="Second gate on left"
-              value={apartmentSide}
-              onChange={(e) =>
-                setApartmentSide(
-                  e.target.value
-                )
-              }
-              className="input"
-            />
-          </InputCard>
-
-          <InputCard
-            icon={<Layers3 size={16} />}
-            title="Floor / Room"
-          >
-            <input
-              type="text"
-              placeholder="Top floor room 4"
-              value={floorNote}
-              onChange={(e) =>
-                setFloorNote(
-                  e.target.value
-                )
-              }
-              className="input"
-            />
-          </InputCard>
-
-          <InputCard
-            icon={<StickyNote size={16} />}
-            title="Arrival Note"
-          >
-            <textarea
-              placeholder="Call when you arrive"
-              value={arrivalNote}
-              onChange={(e) =>
-                setArrivalNote(
-                  e.target.value
-                )
-              }
-              className="input h-28 resize-none"
-            />
-          </InputCard>
-
-          <InputCard
-            icon={<Phone size={16} />}
-            title="Phone Number"
-          >
-            <input
-              type="text"
-              placeholder="+233..."
-              value={phoneNumber}
-              onChange={(e) =>
-                setPhoneNumber(
-                  e.target.value
-                )
-              }
-              className="input"
-            />
-          </InputCard>
-
-        </div>
-
-        <button
-          onClick={createLink}
-          disabled={loading}
-          className="w-full mt-6 bg-green-500 hover:bg-green-400 transition rounded-2xl py-5 font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          <MapPin size={20} />
-
-          {loading
-            ? "Generating..."
-            : "Generate LocateMe Link"}
-        </button>
-
-        {shareUrl && (
-          <div className="mt-6 bg-zinc-900 rounded-3xl p-5 border border-zinc-800 space-y-5">
-
-            <div className="flex items-center gap-2 text-green-400 font-semibold">
-              <CheckCircle2 size={18} />
-              Location Generated
-            </div>
-
-            <div className="bg-zinc-800 rounded-2xl p-4">
-
-              <p className="text-sm text-zinc-400 mb-2">
-                Share Link
-              </p>
-
-              <div className="break-all text-sm">
-                {shareUrl}
-              </div>
-
-            </div>
-
-            <div className="bg-zinc-800 rounded-2xl p-4">
-
-              <div className="flex items-center gap-2 mb-3 text-green-400">
-
-                <ShieldCheck size={16} />
-
-                Smart Guide
-
-              </div>
-
-              <p className="leading-7 text-sm">
-                {generatedGuide}
-              </p>
-
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-
-              <button
-                onClick={copyLink}
-                className="bg-zinc-800 rounded-2xl py-4 flex items-center justify-center gap-2 font-semibold"
-              >
-                <Copy size={16} />
-
-                {copied
-                  ? "Copied"
-                  : "Copy"}
-              </button>
-
-              <button
-                onClick={shareWhatsApp}
-                className="bg-green-600 rounded-2xl py-4 flex items-center justify-center gap-2 font-semibold"
-              >
-                <Share2 size={16} />
-                WhatsApp
-              </button>
-
-            </div>
-
-            <Link
-              href={dashboardUrl}
-              className="w-full bg-purple-600 rounded-2xl py-4 font-semibold flex items-center justify-center gap-2"
-            >
-              <LayoutDashboard size={18} />
-              Open Sender Dashboard
-            </Link>
-
-            <div className="bg-white rounded-3xl p-5 flex justify-center">
-
-              <QRCodeSVG
-                value={shareUrl}
-                size={190}
-              />
-
-            </div>
-
-            <button
-              onClick={speakGuide}
-              className="w-full bg-blue-600 rounded-2xl py-4 flex items-center justify-center gap-2 font-semibold"
-            >
-              <Mic size={18} />
-              Play Voice Guidance
-            </button>
-
-          </div>
-        )}
-
-      </div>
-
-    </main>
+      </main>
+    </>
   );
 }
 
@@ -784,8 +933,11 @@ function InputCard({
     <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
 
       <label className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
+
         {icon}
+
         {title}
+
       </label>
 
       {children}
