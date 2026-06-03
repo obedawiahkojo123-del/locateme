@@ -242,9 +242,6 @@ export default function CreatePage() {
       phoneNumber,
       placeName,
       position,
-      shareUrl,
-      dashboardUrl,
-      generatedGuide,
     };
 
     localStorage.setItem(
@@ -299,21 +296,6 @@ export default function CreatePage() {
 
       if (draft.position)
         setPosition(draft.position);
-
-      if (draft.shareUrl)
-        setShareUrl(
-          draft.shareUrl
-        );
-
-      if (draft.dashboardUrl)
-        setDashboardUrl(
-          draft.dashboardUrl
-        );
-
-      if (draft.generatedGuide)
-        setGeneratedGuide(
-          draft.generatedGuide
-        );
     } catch (err) {
       console.log(err);
     }
@@ -323,6 +305,23 @@ export default function CreatePage() {
     localStorage.removeItem(
       STORAGE_KEY
     );
+
+    setLandmark("");
+    setBuildingColor("");
+    setApartmentSide("");
+    setFloorNote("");
+    setArrivalNote("");
+    setPhoneNumber("");
+    setPlaceName("");
+    
+    setGeneratedGuide("");
+
+    setShareUrl("");
+    setDashboardUrl("");
+    setPosition([
+      5.6037,
+      -0.187,
+    ]);
   };
 
   const fetchLocation = async () => {
