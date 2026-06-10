@@ -153,6 +153,9 @@ export default function CreatePage() {
     phoneNumber,
     placeName,
     position,
+    generatedGuide,
+    shareUrl,
+    dashboardUrl,
     mounted,
     draftLoaded,
   ]);
@@ -249,6 +252,9 @@ export default function CreatePage() {
       phoneNumber,
       placeName,
       position,
+      generatedGuide,
+      shareUrl,
+      dashboardUrl,
     };
 
     localStorage.setItem(
@@ -303,6 +309,12 @@ export default function CreatePage() {
 
       if (draft.position)
         setPosition(draft.position);
+      if (draft.generatedGuide)
+        setGeneratedGuide(draft.generatedGuide);
+      if (draft.shareUrl)
+        setShareUrl(draft.shareUrl);
+      if (draft.dashboardUrl)
+        setDashboardUrl(draft.dashboardUrl);
     } catch (err) {
       console.log(err);
     }
