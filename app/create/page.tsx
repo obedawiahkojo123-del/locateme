@@ -45,6 +45,9 @@ export default function CreatePage() {
   const [mounted, setMounted] =
     useState(false);
 
+  const [draftLoaded, setDraftLoaded] =
+    useState(false);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -125,6 +128,8 @@ export default function CreatePage() {
 
     restoreDraft();
 
+    setDraftLoaded(true);
+
     if (
       "Notification" in window &&
       Notification.permission !==
@@ -135,7 +140,8 @@ export default function CreatePage() {
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !draftLoaded)
+      return;
 
     saveDraft();
   }, [
@@ -148,6 +154,7 @@ export default function CreatePage() {
     placeName,
     position,
     mounted,
+    draftLoaded,
   ]);
 
   useEffect(() => {
@@ -511,9 +518,11 @@ export default function CreatePage() {
 
       setDashboardUrl(dash);
 
-      setLoading(false);
+      localStorage.removeItem(
+        STORAGE_KEY
+      );
 
-      saveDraft();
+      setLoading(false);
     } catch (err) {
       console.log(err);
 
