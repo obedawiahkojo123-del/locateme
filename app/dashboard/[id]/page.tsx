@@ -20,6 +20,8 @@ import {
   BellRing,
   Sparkles,
   Navigation,
+  Copy,
+  Loader2,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -61,6 +63,9 @@ export default function DashboardPage() {
 
   const [arrivalPlace, setArrivalPlace] =
     useState("");
+
+  const [copiedId, setCopiedId] =
+    useState<string | null>(null);
 
   const timeoutRef =
     useRef<NodeJS.Timeout | null>(
